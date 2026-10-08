@@ -16,7 +16,15 @@ const app = express();
 /*                    MIDDLEWARE                     */
 /* ================================================= */
 
-app.use(cors());
+app.use(cors({
+    origin: [
+        "http://127.0.0.1:5501",
+        "http://localhost:5501",
+        "https://ca-anil-raghuvanshi-website.netlify.app"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json());
 
 
