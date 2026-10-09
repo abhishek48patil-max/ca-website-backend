@@ -25,6 +25,7 @@ app.use(cors({
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
 app.use(express.json());
 
 
@@ -33,26 +34,40 @@ app.use(express.json());
 /* ================================================= */
 
 mongoose
-    .connect(process.env.MONGO_URI)
+    .connect(process.env.MONGO_URI, {
+        tls: true,
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000
+    })
     .then(() => {
+
         console.log("MongoDB Connected Successfully");
+
     })
     .catch((error) => {
+
         console.log(
             "MongoDB Connection Error:",
             error.message
         );
+
     });
 
+
 mongoose.connection.on("disconnected", () => {
+
     console.log("MongoDB Disconnected");
+
 });
 
+
 mongoose.connection.on("error", (error) => {
+
     console.log(
         "MongoDB Runtime Error:",
         error.message
     );
+
 });
 
 
@@ -61,7 +76,71 @@ mongoose.connection.on("error", (error) => {
 /* ================================================= */
 
 app.get("/", (req, res) => {
+
     res.send("CA Website Backend is Running!");
+
+});
+
+
+/* ================================================= */
+/*             MONGODB DEBUG ROUTE                  */
+/* ================================================= */
+
+app.get("/api/debug/mongo", async (req, res) => {
+
+    try {
+
+        await Promise.race([
+
+            mongoose.connection.asPromise(),
+
+            new Promise((_, reject) => {
+
+                setTimeout(() => {
+
+                    reject(
+                        new Error(
+                            "MongoDB connection timeout"
+                        )
+                    );
+
+                }, 10000);
+
+            })
+
+        ]);
+
+        res.json({
+
+            success: true,
+
+            message:
+                "MongoDB connection successful",
+
+            readyState:
+                mongoose.connection.readyState
+
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+
+            success: false,
+
+            message:
+                "MongoDB connection failed",
+
+            error:
+                error.message,
+
+            readyState:
+                mongoose.connection.readyState
+
+        });
+
+    }
+
 });
 
 
@@ -83,25 +162,37 @@ app.post(
             if (existingUser) {
 
                 return res.json({
-                    message: "Employee already exists",
-                    username: "employee"
+
+                    message:
+                        "Employee already exists",
+
+                    username:
+                        "employee"
+
                 });
 
             }
 
             const hashedPassword =
-                await bcrypt.hash("123456", 10);
+                await bcrypt.hash(
+                    "123456",
+                    10
+                );
 
             const user =
                 await User.create({
 
-                    name: "CA Employee",
+                    name:
+                        "CA Employee",
 
-                    username: "employee",
+                    username:
+                        "employee",
 
-                    password: hashedPassword,
+                    password:
+                        hashedPassword,
 
-                    role: "employee"
+                    role:
+                        "employee"
 
                 });
 
@@ -171,7 +262,10 @@ app.post(
             }
 
             const hashedPassword =
-                await bcrypt.hash("123456", 10);
+                await bcrypt.hash(
+                    "123456",
+                    10
+                );
 
             const owner =
                 await User.create({
@@ -302,12 +396,14 @@ app.post(
 
                         role:
                             user.role
+
                     },
 
                     process.env.JWT_SECRET,
 
                     {
-                        expiresIn: "8h"
+                        expiresIn:
+                            "8h"
                     }
 
                 );
@@ -481,7 +577,7 @@ function requireRole(...allowedRoles) {
 
 
 /* ================================================= */
-/*                 CURRENT USER                     */
+/*                 CURRENT USER                      */
 /* ================================================= */
 
 app.get(
