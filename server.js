@@ -51,7 +51,6 @@ mongoose.connection.on(
     }
 );
 
-
 mongoose.connection.on(
     "error",
     (error) => {
@@ -108,7 +107,6 @@ app.get(
                 });
 
             }
-
 
             await new Promise(
                 (resolve, reject) => {
@@ -1233,16 +1231,16 @@ async function startServer() {
         );
 
 
-    await mongoose.connect(
-    process.env.MONGO_URI,
-    {
-        serverSelectionTimeoutMS: 30000,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        maxPoolSize: 10,
-        retryWrites: true
-    }
-);
+        await mongoose.connect(
+            process.env.MONGO_URI,
+            {
+                serverSelectionTimeoutMS: 30000,
+                connectTimeoutMS: 30000,
+                socketTimeoutMS: 45000,
+                maxPoolSize: 10,
+                retryWrites: true
+            }
+        );
 
 
         console.log(
