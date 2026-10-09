@@ -91,6 +91,7 @@ app.get(
             ) {
 
                 return res.json({
+
                     success: true,
 
                     readyState:
@@ -104,9 +105,11 @@ app.get(
 
                     name:
                         mongoose.connection.name
+
                 });
 
             }
+
 
             await new Promise(
                 (resolve, reject) => {
@@ -178,23 +181,21 @@ app.get(
 
         } catch (error) {
 
+            console.log(
+                "Mongo Debug Route Error:",
+                error.message
+            );
+
+
             res.status(500).json({
 
                 success: false,
 
-                readyState:
-                    mongoose.connection.readyState,
-
-                name:
-                    error.name,
-
                 message:
-                    error.message,
+                    "MongoDB debug failed",
 
-                reason:
-                    error.reason
-                        ? error.reason.message
-                        : null
+                error:
+                    error.message
 
             });
 
@@ -1264,8 +1265,17 @@ async function startServer() {
     } catch (error) {
 
         console.log(
-            "MongoDB Connection Error"
+            "================================="
         );
+
+        console.log(
+            "MONGODB CONNECTION FAILED"
+        );
+
+        console.log(
+            "================================="
+        );
+
 
         console.log(
             "Name:",
@@ -1282,25 +1292,117 @@ async function startServer() {
             error.code
         );
 
-        console.log(
-            "Reason:",
-            error.reason
-        );
 
         console.log(
-            "Cause:",
-            error.cause
+            "\n--- ERROR CAUSE ---"
         );
 
 
-        if (error.reason) {
+        if (error.cause) {
 
             console.log(
-                "Full Reason:",
-                error.reason
+                "Cause Name:",
+                error.cause.name
+            );
+
+            console.log(
+                "Cause Message:",
+                error.cause.message
+            );
+
+            console.log(
+                "Cause Code:",
+                error.cause.code
+            );
+
+            console.log(
+                "Cause Stack:",
+                error.cause.stack
+            );
+
+        } else {
+
+            console.log(
+                "No direct cause found"
             );
 
         }
+
+
+        console.log(
+            "\n--- SERVER DETAILS ---"
+        );
+
+
+        if (
+            error.reason &&
+            error.reason.servers
+        ) {
+
+            for (
+                const [address, server]
+                of error.reason.servers
+            ) {
+
+                console.log(
+                    "\nServer:",
+                    address
+                );
+
+                console.log(
+                    "Server Type:",
+                    server.type
+                );
+
+
+                if (server.error) {
+
+                    console.log(
+                        "ERROR NAME:",
+                        server.error.name
+                    );
+
+                    console.log(
+                        "ERROR MESSAGE:",
+                        server.error.message
+                    );
+
+                    console.log(
+                        "ERROR CODE:",
+                        server.error.code
+                    );
+
+                    console.log(
+                        "ERROR STACK:",
+                        server.error.stack
+                    );
+
+                } else {
+
+                    console.log(
+                        "Server Error: NONE"
+                    );
+
+                }
+
+            }
+
+        }
+
+
+        console.log(
+            "\n--- FULL TOPOLOGY ---"
+        );
+
+
+        console.log(
+            error.reason
+        );
+
+
+        console.log(
+            "================================="
+        );
 
 
         process.exit(1);
