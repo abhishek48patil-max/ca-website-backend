@@ -3,6 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 require("dotenv").config();
 
@@ -1232,20 +1233,22 @@ async function startServer() {
         );
 
 
-        await mongoose.connect(
-            process.env.MONGO_URI,
-            {
-               serverSelectionTimeoutMS: 30000,
-    connectTimeoutMS: 30000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 10,
-    retryWrites: true,
-    family: 4,
+await mongoose.connect(
+    process.env.MONGO_URI,
+    {
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        retryWrites: true,
+        family: 4,
+        tls: true,
 
-    tls: true,
-    
-            }
-        );
+        secureContext: {
+            secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+        }
+    }
+);
 
 
         console.log(
