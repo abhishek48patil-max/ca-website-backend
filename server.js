@@ -1238,7 +1238,8 @@ async function startServer() {
                 connectTimeoutMS: 30000,
                 socketTimeoutMS: 45000,
                 maxPoolSize: 10,
-                retryWrites: true
+                retryWrites: true,
+                family: 4
             }
         );
 
