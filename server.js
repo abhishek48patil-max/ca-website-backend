@@ -1233,14 +1233,16 @@ async function startServer() {
         );
 
 
-        await mongoose.connect(
-            process.env.MONGO_URI,
-            {
-                tls: true,
-                serverSelectionTimeoutMS: 30000,
-                connectTimeoutMS: 30000
-            }
-        );
+    await mongoose.connect(
+    process.env.MONGO_URI,
+    {
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        retryWrites: true
+    }
+);
 
 
         console.log(
