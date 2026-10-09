@@ -1235,12 +1235,16 @@ async function startServer() {
         await mongoose.connect(
             process.env.MONGO_URI,
             {
-                serverSelectionTimeoutMS: 30000,
-                connectTimeoutMS: 30000,
-                socketTimeoutMS: 45000,
-                maxPoolSize: 10,
-                retryWrites: true,
-                family: 4
+               serverSelectionTimeoutMS: 30000,
+    connectTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 10,
+    retryWrites: true,
+    family: 4,
+
+    tls: true,
+    minVersion: "TLSv1.2",
+    maxVersion: "TLSv1.2"
             }
         );
 
