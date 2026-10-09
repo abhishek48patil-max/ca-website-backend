@@ -41,40 +41,13 @@ app.use(express.json());
 
 
 /* ================================================= */
-/*                MONGODB CONNECTION                 */
+/*                MONGODB EVENTS                     */
 /* ================================================= */
-
-mongoose
-    .connect(process.env.MONGO_URI, {
-        tls: true,
-        serverSelectionTimeoutMS: 30000,
-        connectTimeoutMS: 30000
-    })
-    .then(() => {
-
-        console.log(
-            "MongoDB Connected Successfully"
-        );
-
-    })
-    .catch((error) => {
-
-        console.log(
-            "MongoDB Connection Error:",
-            error.message
-        );
-
-    });
-
 
 mongoose.connection.on(
     "disconnected",
     () => {
-
-        console.log(
-            "MongoDB Disconnected"
-        );
-
+        console.log("MongoDB Disconnected");
     }
 );
 
@@ -82,12 +55,10 @@ mongoose.connection.on(
 mongoose.connection.on(
     "error",
     (error) => {
-
         console.log(
             "MongoDB Runtime Error:",
             error.message
         );
-
     }
 );
 
@@ -99,11 +70,9 @@ mongoose.connection.on(
 app.get(
     "/",
     (req, res) => {
-
         res.send(
             "CA Website Backend is Running!"
         );
-
     }
 );
 
@@ -118,14 +87,77 @@ app.get(
 
         try {
 
-            await mongoose.connect(
-                process.env.MONGO_URI,
-                {
-                    tls: true,
-                    serverSelectionTimeoutMS: 10000,
-                    connectTimeoutMS: 10000
+            if (
+                mongoose.connection.readyState === 1
+            ) {
+
+                return res.json({
+                    success: true,
+
+                    readyState:
+                        mongoose.connection.readyState,
+
+                    host:
+                        mongoose.connection.host,
+
+                    port:
+                        mongoose.connection.port,
+
+                    name:
+                        mongoose.connection.name
+                });
+
+            }
+
+
+            await new Promise(
+                (resolve, reject) => {
+
+                    const timeout =
+                        setTimeout(
+                            () => {
+
+                                reject(
+                                    new Error(
+                                        "MongoDB did not reach connected state within 15 seconds"
+                                    )
+                                );
+
+                            },
+                            15000
+                        );
+
+
+                    mongoose.connection.once(
+                        "connected",
+                        () => {
+
+                            clearTimeout(
+                                timeout
+                            );
+
+                            resolve();
+
+                        }
+                    );
+
+
+                    mongoose.connection.once(
+                        "error",
+                        (error) => {
+
+                            clearTimeout(
+                                timeout
+                            );
+
+                            reject(error);
+
+                        }
+                    );
+
                 }
             );
+
 
             res.json({
 
@@ -144,6 +176,7 @@ app.get(
                     mongoose.connection.name
 
             });
+
 
         } catch (error) {
 
@@ -174,7 +207,7 @@ app.get(
 
 
 /* ================================================= */
-/*              CREATE TEST EMPLOYEE                 */
+/*              CREATE TEST EMPLOYEE                */
 /* ================================================= */
 
 app.post(
@@ -187,6 +220,7 @@ app.post(
                 await User.findOne({
                     username: "employee"
                 });
+
 
             if (existingUser) {
 
@@ -202,11 +236,13 @@ app.post(
 
             }
 
+
             const hashedPassword =
                 await bcrypt.hash(
                     "123456",
                     10
                 );
+
 
             const user =
                 await User.create({
@@ -225,6 +261,7 @@ app.post(
 
                 });
 
+
             res.status(201).json({
 
                 message:
@@ -238,12 +275,14 @@ app.post(
 
             });
 
+
         } catch (error) {
 
             console.log(
                 "Create Employee Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -262,7 +301,7 @@ app.post(
 
 
 /* ================================================= */
-/*                CREATE TEST OWNER                  */
+/*                CREATE TEST OWNER                 */
 /* ================================================= */
 
 app.post(
@@ -275,6 +314,7 @@ app.post(
                 await User.findOne({
                     username: "owner"
                 });
+
 
             if (existingOwner) {
 
@@ -290,11 +330,13 @@ app.post(
 
             }
 
+
             const hashedPassword =
                 await bcrypt.hash(
                     "123456",
                     10
                 );
+
 
             const owner =
                 await User.create({
@@ -313,6 +355,7 @@ app.post(
 
                 });
 
+
             res.status(201).json({
 
                 message:
@@ -326,12 +369,14 @@ app.post(
 
             });
 
+
         } catch (error) {
 
             console.log(
                 "Create Owner Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -364,6 +409,7 @@ app.post(
                 password
             } = req.body;
 
+
             if (
                 !username ||
                 !password
@@ -378,15 +424,19 @@ app.post(
 
             }
 
+
+            const cleanUsername =
+                username
+                    .trim()
+                    .toLowerCase();
+
+
             const user =
                 await User.findOne({
-
                     username:
-                        username
-                            .trim()
-                            .toLowerCase()
-
+                        cleanUsername
                 });
+
 
             if (!user) {
 
@@ -399,11 +449,13 @@ app.post(
 
             }
 
+
             const isPasswordCorrect =
                 await bcrypt.compare(
                     password,
                     user.password
                 );
+
 
             if (!isPasswordCorrect) {
 
@@ -416,9 +468,9 @@ app.post(
 
             }
 
+
             const token =
                 jwt.sign(
-
                     {
                         userId:
                             user._id,
@@ -436,8 +488,8 @@ app.post(
                         expiresIn:
                             "8h"
                     }
-
                 );
+
 
             res.json({
 
@@ -465,12 +517,14 @@ app.post(
 
             });
 
+
         } catch (error) {
 
             console.log(
                 "Login Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -489,7 +543,7 @@ app.post(
 
 
 /* ================================================= */
-/*                AUTHENTICATE TOKEN                 */
+/*                AUTHENTICATE TOKEN                */
 /* ================================================= */
 
 function authenticateToken(
@@ -500,6 +554,7 @@ function authenticateToken(
 
     const authHeader =
         req.headers.authorization;
+
 
     if (!authHeader) {
 
@@ -512,8 +567,10 @@ function authenticateToken(
 
     }
 
+
     const parts =
         authHeader.split(" ");
+
 
     if (
         parts.length !== 2 ||
@@ -529,8 +586,10 @@ function authenticateToken(
 
     }
 
+
     const token =
         parts[1];
+
 
     if (!token) {
 
@@ -543,6 +602,7 @@ function authenticateToken(
 
     }
 
+
     try {
 
         const decoded =
@@ -551,10 +611,13 @@ function authenticateToken(
                 process.env.JWT_SECRET
             );
 
+
         req.user =
             decoded;
 
+
         next();
+
 
     } catch (error) {
 
@@ -595,6 +658,7 @@ function requireRole(
 
         }
 
+
         if (
             !allowedRoles.includes(
                 req.user.role
@@ -610,6 +674,7 @@ function requireRole(
 
         }
 
+
         next();
 
     };
@@ -618,7 +683,7 @@ function requireRole(
 
 
 /* ================================================= */
-/*                 CURRENT USER                      */
+/*                 CURRENT USER                     */
 /* ================================================= */
 
 app.get(
@@ -635,6 +700,7 @@ app.get(
                     )
                     .select("-password");
 
+
             if (!user) {
 
                 return res.status(404).json({
@@ -646,7 +712,9 @@ app.get(
 
             }
 
+
             res.json(user);
+
 
         } catch (error) {
 
@@ -654,6 +722,7 @@ app.get(
                 "Get Current User Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -672,7 +741,7 @@ app.get(
 
 
 /* ================================================= */
-/*                EMPLOYEE MANAGEMENT                */
+/*                EMPLOYEE MANAGEMENT               */
 /* ================================================= */
 
 
@@ -696,7 +765,9 @@ app.get(
                         createdAt: -1
                     });
 
+
             res.json(employees);
+
 
         } catch (error) {
 
@@ -704,6 +775,7 @@ app.get(
                 "Get Employees Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -737,6 +809,7 @@ app.post(
                 password
             } = req.body;
 
+
             if (
                 !name ||
                 !username ||
@@ -752,6 +825,7 @@ app.post(
 
             }
 
+
             if (
                 password.length < 6
             ) {
@@ -765,10 +839,12 @@ app.post(
 
             }
 
+
             const cleanUsername =
                 username
                     .trim()
                     .toLowerCase();
+
 
             const existingUser =
                 await User.findOne({
@@ -777,6 +853,7 @@ app.post(
                         cleanUsername
 
                 });
+
 
             if (existingUser) {
 
@@ -789,11 +866,13 @@ app.post(
 
             }
 
+
             const hashedPassword =
                 await bcrypt.hash(
                     password,
                     10
                 );
+
 
             const employee =
                 await User.create({
@@ -811,6 +890,7 @@ app.post(
                         "employee"
 
                 });
+
 
             res.status(201).json({
 
@@ -838,12 +918,14 @@ app.post(
 
             });
 
+
         } catch (error) {
 
             console.log(
                 "Create Employee Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -877,6 +959,7 @@ app.get(
 
             let workloads;
 
+
             if (
                 req.user.role === "owner"
             ) {
@@ -904,7 +987,9 @@ app.get(
 
             }
 
+
             res.json(workloads);
+
 
         } catch (error) {
 
@@ -912,6 +997,7 @@ app.get(
                 "Fetch Workload Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -947,6 +1033,7 @@ app.post(
                 status
             } = req.body;
 
+
             if (
                 !employeeId ||
                 !task
@@ -960,6 +1047,7 @@ app.post(
                 });
 
             }
+
 
             if (
                 !mongoose.Types.ObjectId.isValid(
@@ -976,6 +1064,7 @@ app.post(
 
             }
 
+
             const employee =
                 await User.findOne({
 
@@ -987,6 +1076,7 @@ app.post(
 
                 });
 
+
             if (!employee) {
 
                 return res.status(404).json({
@@ -997,6 +1087,7 @@ app.post(
                 });
 
             }
+
 
             const newWorkload =
                 new Workload({
@@ -1021,8 +1112,10 @@ app.post(
 
                 });
 
+
             const savedWorkload =
                 await newWorkload.save();
+
 
             res.status(201).json({
 
@@ -1034,12 +1127,14 @@ app.post(
 
             });
 
+
         } catch (error) {
 
             console.log(
                 "Add Workload Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -1072,6 +1167,7 @@ app.delete(
                     req.params.id
                 );
 
+
             if (!deletedWorkload) {
 
                 return res.status(404).json({
@@ -1083,6 +1179,7 @@ app.delete(
 
             }
 
+
             res.json({
 
                 message:
@@ -1090,12 +1187,14 @@ app.delete(
 
             });
 
+
         } catch (error) {
 
             console.log(
                 "Delete Workload Error:",
                 error.message
             );
+
 
             res.status(500).json({
 
@@ -1114,19 +1213,66 @@ app.delete(
 
 
 /* ================================================= */
-/*                     SERVER                        */
+/*                     SERVER                       */
 /* ================================================= */
 
 const PORT =
     process.env.PORT || 5000;
 
-app.listen(
-    PORT,
-    () => {
+
+/* ================================================= */
+/*                START SERVER                      */
+/* ================================================= */
+
+async function startServer() {
+
+    try {
 
         console.log(
-            `Server running on http://localhost:${PORT}`
+            "Connecting to MongoDB..."
         );
 
+
+        await mongoose.connect(
+            process.env.MONGO_URI,
+            {
+                tls: true,
+                serverSelectionTimeoutMS: 30000,
+                connectTimeoutMS: 30000
+            }
+        );
+
+
+        console.log(
+            "MongoDB Connected Successfully"
+        );
+
+
+        app.listen(
+            PORT,
+            () => {
+
+                console.log(
+                    `Server running on port ${PORT}`
+                );
+
+            }
+        );
+
+
+    } catch (error) {
+
+        console.log(
+            "MongoDB Connection Error:",
+            error.message
+        );
+
+
+        process.exit(1);
+
     }
-);
+
+}
+
+
+startServer();
