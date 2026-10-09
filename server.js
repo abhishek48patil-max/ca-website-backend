@@ -16,15 +16,26 @@ const app = express();
 /*                    MIDDLEWARE                     */
 /* ================================================= */
 
-app.use(cors({
-    origin: [
-        "http://127.0.0.1:5501",
-        "http://localhost:5501",
-        "https://ca-anil-raghuvanshi-website.netlify.app"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-}));
+app.use(
+    cors({
+        origin: [
+            "http://127.0.0.1:5501",
+            "http://localhost:5501",
+            "https://ca-anil-raghuvanshi-website.netlify.app"
+        ],
+        methods: [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "OPTIONS"
+        ],
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization"
+        ]
+    })
+);
 
 app.use(express.json());
 
@@ -41,7 +52,9 @@ mongoose
     })
     .then(() => {
 
-        console.log("MongoDB Connected Successfully");
+        console.log(
+            "MongoDB Connected Successfully"
+        );
 
     })
     .catch((error) => {
@@ -54,94 +67,110 @@ mongoose
     });
 
 
-mongoose.connection.on("disconnected", () => {
+mongoose.connection.on(
+    "disconnected",
+    () => {
 
-    console.log("MongoDB Disconnected");
+        console.log(
+            "MongoDB Disconnected"
+        );
 
-});
+    }
+);
 
 
-mongoose.connection.on("error", (error) => {
+mongoose.connection.on(
+    "error",
+    (error) => {
 
-    console.log(
-        "MongoDB Runtime Error:",
-        error.message
-    );
+        console.log(
+            "MongoDB Runtime Error:",
+            error.message
+        );
 
-});
+    }
+);
 
 
 /* ================================================= */
 /*                    ROOT ROUTE                     */
 /* ================================================= */
 
-app.get("/", (req, res) => {
+app.get(
+    "/",
+    (req, res) => {
 
-    res.send("CA Website Backend is Running!");
+        res.send(
+            "CA Website Backend is Running!"
+        );
 
-});
+    }
+);
 
 
 /* ================================================= */
 /*             MONGODB DEBUG ROUTE                  */
 /* ================================================= */
 
-app.get("/api/debug/mongo", async (req, res) => {
+app.get(
+    "/api/debug/mongo",
+    async (req, res) => {
 
-    try {
+        try {
 
-        await Promise.race([
+            await mongoose.connect(
+                process.env.MONGO_URI,
+                {
+                    tls: true,
+                    serverSelectionTimeoutMS: 10000,
+                    connectTimeoutMS: 10000
+                }
+            );
 
-            mongoose.connection.asPromise(),
+            res.json({
 
-            new Promise((_, reject) => {
+                success: true,
 
-                setTimeout(() => {
+                readyState:
+                    mongoose.connection.readyState,
 
-                    reject(
-                        new Error(
-                            "MongoDB connection timeout"
-                        )
-                    );
+                host:
+                    mongoose.connection.host,
 
-                }, 10000);
+                port:
+                    mongoose.connection.port,
 
-            })
+                name:
+                    mongoose.connection.name
 
-        ]);
+            });
 
-        res.json({
+        } catch (error) {
 
-            success: true,
+            res.status(500).json({
 
-            message:
-                "MongoDB connection successful",
+                success: false,
 
-            readyState:
-                mongoose.connection.readyState
+                readyState:
+                    mongoose.connection.readyState,
 
-        });
+                name:
+                    error.name,
 
-    } catch (error) {
+                message:
+                    error.message,
 
-        res.status(500).json({
+                reason:
+                    error.reason
+                        ? error.reason.message
+                        : null
 
-            success: false,
+            });
 
-            message:
-                "MongoDB connection failed",
-
-            error:
-                error.message,
-
-            readyState:
-                mongoose.connection.readyState
-
-        });
+        }
 
     }
-
-});
+);
 
 
 /* ================================================= */
@@ -335,7 +364,10 @@ app.post(
                 password
             } = req.body;
 
-            if (!username || !password) {
+            if (
+                !username ||
+                !password
+            ) {
 
                 return res.status(400).json({
 
@@ -396,7 +428,6 @@ app.post(
 
                         role:
                             user.role
-
                     },
 
                     process.env.JWT_SECRET,
@@ -461,7 +492,11 @@ app.post(
 /*                AUTHENTICATE TOKEN                 */
 /* ================================================= */
 
-function authenticateToken(req, res, next) {
+function authenticateToken(
+    req,
+    res,
+    next
+) {
 
     const authHeader =
         req.headers.authorization;
@@ -539,9 +574,15 @@ function authenticateToken(req, res, next) {
 /*                    ROLE CHECK                     */
 /* ================================================= */
 
-function requireRole(...allowedRoles) {
+function requireRole(
+    ...allowedRoles
+) {
 
-    return (req, res, next) => {
+    return (
+        req,
+        res,
+        next
+    ) => {
 
         if (!req.user) {
 
@@ -711,7 +752,9 @@ app.post(
 
             }
 
-            if (password.length < 6) {
+            if (
+                password.length < 6
+            ) {
 
                 return res.status(400).json({
 
