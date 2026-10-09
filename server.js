@@ -4,7 +4,6 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-
 require("dotenv").config();
 
 const Workload = require("./models/Workload");
@@ -12,9 +11,8 @@ const User = require("./models/User");
 
 const app = express();
 
-
 /* ================================================= */
-/*                    MIDDLEWARE                     */
+/*                     CORS                          */
 /* ================================================= */
 
 app.use(
@@ -22,8 +20,10 @@ app.use(
         origin: [
             "http://127.0.0.1:5501",
             "http://localhost:5501",
+            "https://creative-paletas-96221.netlify.app",
             "https://ca-anil-raghuvanshi-website.netlify.app"
         ],
+
         methods: [
             "GET",
             "POST",
@@ -31,6 +31,7 @@ app.use(
             "DELETE",
             "OPTIONS"
         ],
+
         allowedHeaders: [
             "Content-Type",
             "Authorization"
@@ -40,9 +41,8 @@ app.use(
 
 app.use(express.json());
 
-
 /* ================================================= */
-/*                MONGODB EVENTS                     */
+/*              MONGODB EVENTS                      */
 /* ================================================= */
 
 mongoose.connection.on(
@@ -62,9 +62,8 @@ mongoose.connection.on(
     }
 );
 
-
 /* ================================================= */
-/*                    ROOT ROUTE                     */
+/*                    ROOT                          */
 /* ================================================= */
 
 app.get(
@@ -76,9 +75,8 @@ app.get(
     }
 );
 
-
 /* ================================================= */
-/*             MONGODB DEBUG ROUTE                  */
+/*                 DEBUG MONGO                     */
 /* ================================================= */
 
 app.get(
@@ -111,7 +109,6 @@ app.get(
 
             }
 
-
             await new Promise(
                 (resolve, reject) => {
 
@@ -129,7 +126,6 @@ app.get(
                             15000
                         );
 
-
                     mongoose.connection.once(
                         "connected",
                         () => {
@@ -142,7 +138,6 @@ app.get(
 
                         }
                     );
-
 
                     mongoose.connection.once(
                         "error",
@@ -159,7 +154,6 @@ app.get(
 
                 }
             );
-
 
             res.json({
 
@@ -179,14 +173,12 @@ app.get(
 
             });
 
-
         } catch (error) {
 
             console.log(
                 "Mongo Debug Route Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -205,7 +197,6 @@ app.get(
     }
 );
 
-
 /* ================================================= */
 /*              CREATE TEST EMPLOYEE                */
 /* ================================================= */
@@ -221,7 +212,6 @@ app.post(
                     username: "employee"
                 });
 
-
             if (existingUser) {
 
                 return res.json({
@@ -236,13 +226,11 @@ app.post(
 
             }
 
-
             const hashedPassword =
                 await bcrypt.hash(
                     "123456",
                     10
                 );
-
 
             const user =
                 await User.create({
@@ -261,7 +249,6 @@ app.post(
 
                 });
 
-
             res.status(201).json({
 
                 message:
@@ -275,14 +262,12 @@ app.post(
 
             });
 
-
         } catch (error) {
 
             console.log(
                 "Create Employee Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -299,7 +284,6 @@ app.post(
     }
 );
 
-
 /* ================================================= */
 /*                CREATE TEST OWNER                 */
 /* ================================================= */
@@ -315,7 +299,6 @@ app.post(
                     username: "owner"
                 });
 
-
             if (existingOwner) {
 
                 return res.json({
@@ -330,13 +313,11 @@ app.post(
 
             }
 
-
             const hashedPassword =
                 await bcrypt.hash(
                     "123456",
                     10
                 );
-
 
             const owner =
                 await User.create({
@@ -355,7 +336,6 @@ app.post(
 
                 });
 
-
             res.status(201).json({
 
                 message:
@@ -369,14 +349,12 @@ app.post(
 
             });
 
-
         } catch (error) {
 
             console.log(
                 "Create Owner Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -393,9 +371,8 @@ app.post(
     }
 );
 
-
 /* ================================================= */
-/*                       LOGIN                       */
+/*                       LOGIN                     */
 /* ================================================= */
 
 app.post(
@@ -408,7 +385,6 @@ app.post(
                 username,
                 password
             } = req.body;
-
 
             if (
                 !username ||
@@ -424,19 +400,16 @@ app.post(
 
             }
 
-
             const cleanUsername =
                 username
                     .trim()
                     .toLowerCase();
-
 
             const user =
                 await User.findOne({
                     username:
                         cleanUsername
                 });
-
 
             if (!user) {
 
@@ -449,13 +422,11 @@ app.post(
 
             }
 
-
             const isPasswordCorrect =
                 await bcrypt.compare(
                     password,
                     user.password
                 );
-
 
             if (!isPasswordCorrect) {
 
@@ -467,7 +438,6 @@ app.post(
                 });
 
             }
-
 
             const token =
                 jwt.sign(
@@ -489,7 +459,6 @@ app.post(
                             "8h"
                     }
                 );
-
 
             res.json({
 
@@ -517,14 +486,12 @@ app.post(
 
             });
 
-
         } catch (error) {
 
             console.log(
                 "Login Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -541,7 +508,6 @@ app.post(
     }
 );
 
-
 /* ================================================= */
 /*                AUTHENTICATE TOKEN                */
 /* ================================================= */
@@ -555,7 +521,6 @@ function authenticateToken(
     const authHeader =
         req.headers.authorization;
 
-
     if (!authHeader) {
 
         return res.status(401).json({
@@ -567,10 +532,8 @@ function authenticateToken(
 
     }
 
-
     const parts =
         authHeader.split(" ");
-
 
     if (
         parts.length !== 2 ||
@@ -586,10 +549,8 @@ function authenticateToken(
 
     }
 
-
     const token =
         parts[1];
-
 
     if (!token) {
 
@@ -602,7 +563,6 @@ function authenticateToken(
 
     }
 
-
     try {
 
         const decoded =
@@ -611,13 +571,10 @@ function authenticateToken(
                 process.env.JWT_SECRET
             );
 
-
         req.user =
             decoded;
 
-
         next();
-
 
     } catch (error) {
 
@@ -632,9 +589,8 @@ function authenticateToken(
 
 }
 
-
 /* ================================================= */
-/*                    ROLE CHECK                     */
+/*                    ROLE CHECK                    */
 /* ================================================= */
 
 function requireRole(
@@ -658,7 +614,6 @@ function requireRole(
 
         }
 
-
         if (
             !allowedRoles.includes(
                 req.user.role
@@ -674,16 +629,14 @@ function requireRole(
 
         }
 
-
         next();
 
     };
 
 }
 
-
 /* ================================================= */
-/*                 CURRENT USER                     */
+/*                 CURRENT USER                    */
 /* ================================================= */
 
 app.get(
@@ -700,7 +653,6 @@ app.get(
                     )
                     .select("-password");
 
-
             if (!user) {
 
                 return res.status(404).json({
@@ -712,9 +664,7 @@ app.get(
 
             }
 
-
             res.json(user);
-
 
         } catch (error) {
 
@@ -722,7 +672,6 @@ app.get(
                 "Get Current User Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -739,11 +688,9 @@ app.get(
     }
 );
 
-
 /* ================================================= */
 /*                EMPLOYEE MANAGEMENT               */
 /* ================================================= */
-
 
 /* ================= GET EMPLOYEES ================= */
 
@@ -765,9 +712,7 @@ app.get(
                         createdAt: -1
                     });
 
-
             res.json(employees);
-
 
         } catch (error) {
 
@@ -775,7 +720,6 @@ app.get(
                 "Get Employees Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -791,7 +735,6 @@ app.get(
 
     }
 );
-
 
 /* ================= CREATE EMPLOYEE ================= */
 
@@ -809,7 +752,6 @@ app.post(
                 password
             } = req.body;
 
-
             if (
                 !name ||
                 !username ||
@@ -825,7 +767,6 @@ app.post(
 
             }
 
-
             if (
                 password.length < 6
             ) {
@@ -839,12 +780,10 @@ app.post(
 
             }
 
-
             const cleanUsername =
                 username
                     .trim()
                     .toLowerCase();
-
 
             const existingUser =
                 await User.findOne({
@@ -853,7 +792,6 @@ app.post(
                         cleanUsername
 
                 });
-
 
             if (existingUser) {
 
@@ -866,13 +804,11 @@ app.post(
 
             }
 
-
             const hashedPassword =
                 await bcrypt.hash(
                     password,
                     10
                 );
-
 
             const employee =
                 await User.create({
@@ -890,7 +826,6 @@ app.post(
                         "employee"
 
                 });
-
 
             res.status(201).json({
 
@@ -918,14 +853,12 @@ app.post(
 
             });
 
-
         } catch (error) {
 
             console.log(
                 "Create Employee Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -942,11 +875,9 @@ app.post(
     }
 );
 
-
 /* ================================================= */
 /*                     WORKLOAD                     */
 /* ================================================= */
-
 
 /* ================= GET WORKLOAD ================= */
 
@@ -958,7 +889,6 @@ app.get(
         try {
 
             let workloads;
-
 
             if (
                 req.user.role === "owner"
@@ -987,9 +917,7 @@ app.get(
 
             }
 
-
             res.json(workloads);
-
 
         } catch (error) {
 
@@ -997,7 +925,6 @@ app.get(
                 "Fetch Workload Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -1013,7 +940,6 @@ app.get(
 
     }
 );
-
 
 /* ================= ADD WORKLOAD ================= */
 
@@ -1033,7 +959,6 @@ app.post(
                 status
             } = req.body;
 
-
             if (
                 !employeeId ||
                 !task
@@ -1047,7 +972,6 @@ app.post(
                 });
 
             }
-
 
             if (
                 !mongoose.Types.ObjectId.isValid(
@@ -1064,7 +988,6 @@ app.post(
 
             }
 
-
             const employee =
                 await User.findOne({
 
@@ -1076,7 +999,6 @@ app.post(
 
                 });
 
-
             if (!employee) {
 
                 return res.status(404).json({
@@ -1087,7 +1009,6 @@ app.post(
                 });
 
             }
-
 
             const newWorkload =
                 new Workload({
@@ -1112,10 +1033,8 @@ app.post(
 
                 });
 
-
             const savedWorkload =
                 await newWorkload.save();
-
 
             res.status(201).json({
 
@@ -1127,14 +1046,12 @@ app.post(
 
             });
 
-
         } catch (error) {
 
             console.log(
                 "Add Workload Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -1151,7 +1068,6 @@ app.post(
     }
 );
 
-
 /* ================= DELETE WORKLOAD ================= */
 
 app.delete(
@@ -1167,7 +1083,6 @@ app.delete(
                     req.params.id
                 );
 
-
             if (!deletedWorkload) {
 
                 return res.status(404).json({
@@ -1179,7 +1094,6 @@ app.delete(
 
             }
 
-
             res.json({
 
                 message:
@@ -1187,14 +1101,12 @@ app.delete(
 
             });
 
-
         } catch (error) {
 
             console.log(
                 "Delete Workload Error:",
                 error.message
             );
-
 
             res.status(500).json({
 
@@ -1211,14 +1123,12 @@ app.delete(
     }
 );
 
-
 /* ================================================= */
 /*                     SERVER                       */
 /* ================================================= */
 
 const PORT =
     process.env.PORT || 5000;
-
 
 /* ================================================= */
 /*                START SERVER                      */
@@ -1232,27 +1142,22 @@ async function startServer() {
             "Connecting to MongoDB..."
         );
 
-
-await mongoose.connect(
-    process.env.MONGO_URI,
-    {
-        serverSelectionTimeoutMS: 30000,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        maxPoolSize: 10,
-        retryWrites: true,
-        family: 4,
-        tls: true,
-
-        
-    }
-);
-
+        await mongoose.connect(
+            process.env.MONGO_URI,
+            {
+                serverSelectionTimeoutMS: 30000,
+                connectTimeoutMS: 30000,
+                socketTimeoutMS: 45000,
+                maxPoolSize: 10,
+                retryWrites: true,
+                family: 4,
+                tls: true
+            }
+        );
 
         console.log(
             "MongoDB Connected Successfully"
         );
-
 
         app.listen(
             PORT,
@@ -1264,7 +1169,6 @@ await mongoose.connect(
 
             }
         );
-
 
     } catch (error) {
 
@@ -1279,7 +1183,6 @@ await mongoose.connect(
         console.log(
             "================================="
         );
-
 
         console.log(
             "Name:",
@@ -1296,11 +1199,9 @@ await mongoose.connect(
             error.code
         );
 
-
         console.log(
             "\n--- ERROR CAUSE ---"
         );
-
 
         if (error.cause) {
 
@@ -1332,11 +1233,9 @@ await mongoose.connect(
 
         }
 
-
         console.log(
             "\n--- SERVER DETAILS ---"
         );
-
 
         if (
             error.reason &&
@@ -1357,7 +1256,6 @@ await mongoose.connect(
                     "Server Type:",
                     server.type
                 );
-
 
                 if (server.error) {
 
@@ -1393,27 +1291,22 @@ await mongoose.connect(
 
         }
 
-
         console.log(
             "\n--- FULL TOPOLOGY ---"
         );
-
 
         console.log(
             error.reason
         );
 
-
         console.log(
             "================================="
         );
-
 
         process.exit(1);
 
     }
 
 }
-
 
 startServer();
