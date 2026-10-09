@@ -1264,9 +1264,43 @@ async function startServer() {
     } catch (error) {
 
         console.log(
-            "MongoDB Connection Error:",
+            "MongoDB Connection Error"
+        );
+
+        console.log(
+            "Name:",
+            error.name
+        );
+
+        console.log(
+            "Message:",
             error.message
         );
+
+        console.log(
+            "Code:",
+            error.code
+        );
+
+        console.log(
+            "Reason:",
+            error.reason
+        );
+
+        console.log(
+            "Cause:",
+            error.cause
+        );
+
+
+        if (error.reason) {
+
+            console.log(
+                "Full Reason:",
+                error.reason
+            );
+
+        }
 
 
         process.exit(1);
