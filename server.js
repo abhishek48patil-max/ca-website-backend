@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
+
 
 require("dotenv").config();
 
@@ -1244,9 +1244,7 @@ await mongoose.connect(
         family: 4,
         tls: true,
 
-        secureContext: {
-            secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
-        }
+        
     }
 );
 
