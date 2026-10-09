@@ -1243,8 +1243,7 @@ async function startServer() {
     family: 4,
 
     tls: true,
-    minVersion: "TLSv1.2",
-    maxVersion: "TLSv1.2"
+    
             }
         );
 
