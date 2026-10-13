@@ -80,7 +80,7 @@ const emailTransporter = nodemailer.createTransport({
 
 
 // Check email configuration
-emailTransporter.verify((error, success) => {
+emailTransporter.verify((error) => {
   if (error) {
     console.error(
       "EMAIL CONFIGURATION ERROR:",
@@ -635,11 +635,6 @@ app.post(
         message,
       } = req.body;
 
-
-      // ===============================
-      // VALIDATION
-      // ===============================
-
       if (
         !name ||
         !phone ||
@@ -653,11 +648,6 @@ app.post(
         });
 
       }
-
-
-      // ===============================
-      // SAVE CONSULTATION
-      // ===============================
 
       const consultation =
         await Consultation.create({
@@ -685,11 +675,6 @@ app.post(
             "New",
 
         });
-
-
-      // ===============================
-      // SEND EMAIL TO OWNER
-      // ===============================
 
       try {
 
@@ -789,20 +774,7 @@ app.post(
           emailError.message
         );
 
-        /*
-          Consultation is already saved
-          in MongoDB.
-
-          Email failure will NOT delete
-          the consultation.
-        */
-
       }
-
-
-      // ===============================
-      // SUCCESS RESPONSE
-      // ===============================
 
       return res.status(201).json({
 
@@ -1003,12 +975,40 @@ async function startServer() {
 
   try {
 
+    const mongoUri =
+      process.env.MONGO_URI;
+
+    if (!mongoUri) {
+
+      console.error(
+        "MONGO_URI environment variable is missing"
+      );
+
+      process.exit(1);
+
+    }
+
+    if (!process.env.JWT_SECRET) {
+
+      console.error(
+        "JWT_SECRET environment variable is missing"
+      );
+
+      process.exit(1);
+
+    }
+
     console.log(
       "Connecting to MongoDB..."
     );
 
     await mongoose.connect(
-      process.env.MONGO_URI
+      mongoUri,
+      {
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+      }
     );
 
     console.log(
@@ -1042,6 +1042,13 @@ async function startServer() {
       "MESSAGE:",
       error.message
     );
+
+    if (error.reason) {
+      console.error(
+        "REASON:",
+        error.reason
+      );
+    }
 
     process.exit(1);
 
