@@ -13,102 +13,105 @@ const Consultation = require("./models/Consultation");
 
 const {
   authenticateToken,
-  requireOwner,
+  requireOwner
 } = require("./middleware/auth");
 
 const app = express();
 
 
-// ===============================
+// =====================================================
 // CORS
-// ===============================
+// =====================================================
 
 const allowedOrigins = [
   "http://localhost:5500",
-  "http://127.0.0.1:5500",
   "http://localhost:5501",
+  "http://127.0.0.1:5500",
   "http://127.0.0.1:5501",
-  "https://ca-anil-raghuvanshi-website.netlify.app",
+  "https://curious-kitten-8b981e.netlify.app"
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Not allowed by CORS"));
-    },
-
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "DELETE",
-      "OPTIONS",
-    ],
-
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
-
+    origin: allowedOrigins,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
+
+app.options("*", cors());
+
+
+// =====================================================
+// BODY PARSER
+// =====================================================
 
 app.use(express.json());
 
 
-// ===============================
+// =====================================================
 // EMAIL CONFIGURATION
-// ===============================
+// =====================================================
 
 const emailTransporter = nodemailer.createTransport({
   service: "gmail",
 
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-
-// Check email configuration
-emailTransporter.verify((error) => {
-  if (error) {
-    console.error(
-      "EMAIL CONFIGURATION ERROR:",
-      error.message
-    );
-  } else {
-    console.log(
-      "Email service is ready"
-    );
+    pass: process.env.EMAIL_PASS
   }
 });
 
 
-// ===============================
-// HOME
-// ===============================
+// Check email configuration when server starts
+emailTransporter.verify((error) => {
 
-app.get("/", (req, res) => {
-  res.json({
-    message:
-      "CA Website Backend is Running!",
-  });
+  if (error) {
+
+    console.error(
+      "================================="
+    );
+
+    console.error(
+      "EMAIL CONFIGURATION ERROR"
+    );
+
+    console.error(
+      error.message
+    );
+
+    console.error(
+      "================================="
+    );
+
+  } else {
+
+    console.log(
+      "Email service is ready"
+    );
+
+  }
+
 });
 
 
-// ===============================
+// =====================================================
+// HOME ROUTE
+// =====================================================
+
+app.get("/", (req, res) => {
+
+  res.send(
+    "CA Anil Raghuvanshi Backend Running"
+  );
+
+});
+
+
+// =====================================================
 // LOGIN
-// ===============================
+// =====================================================
 
 app.post(
   "/api/auth/login",
@@ -118,90 +121,89 @@ app.post(
 
       const {
         username,
-        password,
+        password
       } = req.body;
 
+
+      // Check input
       if (!username || !password) {
 
         return res.status(400).json({
           message:
-            "Username and password are required",
+            "Username and password are required"
         });
 
       }
 
-      const cleanUsername =
-        username
-          .trim()
-          .toLowerCase();
 
+      // Clean username
+      const cleanUsername =
+        username.trim().toLowerCase();
+
+
+      // Find user
       const user =
         await User.findOne({
-          username:
-            cleanUsername,
+          username: cleanUsername
         });
+
 
       if (!user) {
 
         return res.status(401).json({
           message:
-            "Invalid username or password",
+            "Invalid username or password"
         });
 
       }
 
+
+      // Compare password
       const passwordMatch =
         await bcrypt.compare(
           password,
           user.password
         );
 
+
       if (!passwordMatch) {
 
         return res.status(401).json({
           message:
-            "Invalid username or password",
+            "Invalid username or password"
         });
 
       }
 
+
+      // Create JWT
       const token =
         jwt.sign(
           {
-            id:
-              user._id.toString(),
-
-            username:
-              user.username,
-
-            role:
-              user.role,
+            id: user._id.toString(),
+            username: user.username,
+            role: user.role
           },
 
           process.env.JWT_SECRET,
 
           {
-            expiresIn: "8h",
+            expiresIn: "8h"
           }
         );
 
+
+      // Success
       return res.json({
 
         token,
 
         user: {
-          _id:
-            user._id,
-
-          name:
-            user.name,
-
-          username:
-            user.username,
-
-          role:
-            user.role,
-        },
+          _id: user._id,
+          name: user.name,
+          username: user.username,
+          role: user.role
+        }
 
       });
 
@@ -214,7 +216,7 @@ app.post(
 
       return res.status(500).json({
         message:
-          "Server error during login",
+          "Server error during login"
       });
 
     }
@@ -223,13 +225,14 @@ app.post(
 );
 
 
-// ===============================
-// AUTH ME
-// ===============================
+// =====================================================
+// CHECK CURRENT USER
+// =====================================================
 
 app.get(
   "/api/auth/me",
   authenticateToken,
+
   async (req, res) => {
 
     try {
@@ -237,18 +240,18 @@ app.get(
       const user =
         await User.findById(
           req.user.id
-        ).select(
-          "_id name username role createdAt updatedAt"
-        );
+        ).select("-password");
+
 
       if (!user) {
 
         return res.status(404).json({
           message:
-            "User not found",
+            "User not found"
         });
 
       }
+
 
       return res.json(user);
 
@@ -261,7 +264,7 @@ app.get(
 
       return res.status(500).json({
         message:
-          "Server error",
+          "Server error"
       });
 
     }
@@ -270,35 +273,29 @@ app.get(
 );
 
 
-// ===============================
+// =====================================================
 // GET EMPLOYEES
-// OWNER ONLY
-// ===============================
+// =====================================================
 
 app.get(
   "/api/employees",
   authenticateToken,
-  requireOwner,
+
   async (req, res) => {
 
     try {
 
       const employees =
         await User.find({
-          role:
-            "employee",
+          role: "employee"
         })
-          .select(
-            "_id name username role createdAt updatedAt"
-          )
-          .sort({
-            createdAt:
-              -1,
-          });
+        .select("-password")
+        .sort({
+          createdAt: -1
+        });
 
-      return res.json(
-        employees
-      );
+
+      res.json(employees);
 
     } catch (error) {
 
@@ -307,9 +304,9 @@ app.get(
         error
       );
 
-      return res.status(500).json({
+      res.status(500).json({
         message:
-          "Failed to load employees",
+          "Failed to fetch employees"
       });
 
     }
@@ -318,15 +315,15 @@ app.get(
 );
 
 
-// ===============================
+// =====================================================
 // CREATE EMPLOYEE
-// OWNER ONLY
-// ===============================
+// =====================================================
 
 app.post(
   "/api/employees",
   authenticateToken,
   requireOwner,
+
   async (req, res) => {
 
     try {
@@ -334,8 +331,9 @@ app.post(
       const {
         name,
         username,
-        password,
+        password
       } = req.body;
+
 
       if (
         !name ||
@@ -345,45 +343,38 @@ app.post(
 
         return res.status(400).json({
           message:
-            "Name, username and password are required",
+            "Name, username and password are required"
         });
 
       }
 
-      if (password.length < 6) {
-
-        return res.status(400).json({
-          message:
-            "Password must be at least 6 characters",
-        });
-
-      }
 
       const cleanUsername =
-        username
-          .trim()
-          .toLowerCase();
+        username.trim().toLowerCase();
+
 
       const existingUser =
         await User.findOne({
-          username:
-            cleanUsername,
+          username: cleanUsername
         });
+
 
       if (existingUser) {
 
         return res.status(409).json({
           message:
-            "Username already exists",
+            "Username already exists"
         });
 
       }
+
 
       const hashedPassword =
         await bcrypt.hash(
           password,
           10
         );
+
 
       const employee =
         await User.create({
@@ -398,19 +389,19 @@ app.post(
             hashedPassword,
 
           role:
-            "employee",
+            "employee"
 
         });
 
-      return res.status(201).json({
+
+      res.status(201).json({
 
         message:
           "Employee created successfully",
 
         employee: {
 
-          _id:
-            employee._id,
+          _id: employee._id,
 
           name:
             employee.name,
@@ -419,9 +410,9 @@ app.post(
             employee.username,
 
           role:
-            employee.role,
+            employee.role
 
-        },
+        }
 
       });
 
@@ -432,9 +423,9 @@ app.post(
         error
       );
 
-      return res.status(500).json({
+      res.status(500).json({
         message:
-          "Could not create employee",
+          "Failed to create employee"
       });
 
     }
@@ -443,47 +434,26 @@ app.post(
 );
 
 
-// ===============================
+// =====================================================
 // GET WORKLOAD
-// ===============================
+// =====================================================
 
 app.get(
   "/api/workload",
   authenticateToken,
+
   async (req, res) => {
 
     try {
 
-      let workloads;
+      const workloads =
+        await Workload.find()
+        .sort({
+          createdAt: -1
+        });
 
-      if (
-        req.user.role ===
-        "owner"
-      ) {
 
-        workloads =
-          await Workload.find()
-            .sort({
-              createdAt:
-                -1,
-            });
-
-      } else {
-
-        workloads =
-          await Workload.find({
-            employeeId:
-              req.user.id,
-          }).sort({
-            createdAt:
-              -1,
-          });
-
-      }
-
-      return res.json(
-        workloads
-      );
+      res.json(workloads);
 
     } catch (error) {
 
@@ -492,9 +462,9 @@ app.get(
         error
       );
 
-      return res.status(500).json({
+      res.status(500).json({
         message:
-          "Unable to fetch workloads",
+          "Failed to fetch workload"
       });
 
     }
@@ -503,15 +473,15 @@ app.get(
 );
 
 
-// ===============================
+// =====================================================
 // CREATE WORKLOAD
-// OWNER ONLY
-// ===============================
+// =====================================================
 
 app.post(
   "/api/workload",
   authenticateToken,
   requireOwner,
+
   async (req, res) => {
 
     try {
@@ -521,53 +491,50 @@ app.post(
         task,
         priority,
         deadline,
-        status,
+        status
       } = req.body;
 
-      if (!employeeId) {
-
-        return res.status(400).json({
-          message:
-            "Employee is required",
-        });
-
-      }
 
       if (
+        !employeeId ||
         !task ||
-        !task.trim()
+        !priority ||
+        !deadline
       ) {
 
         return res.status(400).json({
           message:
-            "Task is required",
+            "Employee, task, priority and deadline are required"
         });
 
       }
 
+
       const employee =
         await User.findOne({
-          _id:
-            employeeId,
 
-          role:
-            "employee",
+          _id: employeeId,
+
+          role: "employee"
+
         });
+
 
       if (!employee) {
 
         return res.status(404).json({
           message:
-            "Employee not found",
+            "Employee not found"
         });
 
       }
+
 
       const workload =
         await Workload.create({
 
           employeeId:
-            employee._id,
+            employeeId,
 
           employeeName:
             employee.name,
@@ -575,26 +542,22 @@ app.post(
           task:
             task.trim(),
 
-          priority:
-            priority ||
-            "Medium",
+          priority,
 
-          deadline:
-            deadline ||
-            "",
+          deadline,
 
           status:
-            status ||
-            "Pending",
+            status || "Pending"
 
         });
+
 
       return res.status(201).json({
 
         message:
-          "Workload assigned successfully",
+          "Work assigned successfully",
 
-        workload,
+        workload
 
       });
 
@@ -607,7 +570,7 @@ app.post(
 
       return res.status(500).json({
         message:
-          "Failed to assign workload",
+          "Failed to assign work"
       });
 
     }
@@ -616,52 +579,273 @@ app.post(
 );
 
 
-// ===============================
-// BOOK CONSULTATION
-// PUBLIC
-// ===============================
+// =====================================================
+// UPDATE / MODIFY WORKLOAD
+// =====================================================
+
+app.put(
+  "/api/workload/:id",
+  authenticateToken,
+  requireOwner,
+
+  async (req, res) => {
+
+    try {
+
+      const workloadId =
+        req.params.id;
+
+
+      // Check valid MongoDB ID
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          workloadId
+        )
+      ) {
+
+        return res.status(400).json({
+          message:
+            "Invalid workload ID."
+        });
+
+      }
+
+
+      const {
+        task,
+        priority,
+        deadline,
+        status
+      } = req.body;
+
+
+      // Validate task
+      if (
+        !task ||
+        !task.trim()
+      ) {
+
+        return res.status(400).json({
+          message:
+            "Task is required."
+        });
+
+      }
+
+
+      // Update workload
+      const updatedWorkload =
+        await Workload.findByIdAndUpdate(
+
+          workloadId,
+
+          {
+            task:
+              task.trim(),
+
+            priority:
+              priority || "Medium",
+
+            deadline:
+              deadline || "",
+
+            status:
+              status || "Pending"
+          },
+
+          {
+            new: true,
+
+            runValidators: true
+          }
+
+        );
+
+
+      // Workload not found
+      if (!updatedWorkload) {
+
+        return res.status(404).json({
+          message:
+            "Workload not found."
+        });
+
+      }
+
+
+      // Success
+      return res.json({
+
+        message:
+          "Workload updated successfully.",
+
+        workload:
+          updatedWorkload
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "UPDATE WORKLOAD ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to update workload."
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// DELETE WORKLOAD
+// =====================================================
+
+app.delete(
+  "/api/workload/:id",
+  authenticateToken,
+  requireOwner,
+
+  async (req, res) => {
+
+    try {
+
+      const workloadId =
+        req.params.id;
+
+
+      // Check valid MongoDB ID
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          workloadId
+        )
+      ) {
+
+        return res.status(400).json({
+          message:
+            "Invalid workload ID."
+        });
+
+      }
+
+
+      // Delete workload
+      const deletedWorkload =
+        await Workload.findByIdAndDelete(
+          workloadId
+        );
+
+
+      // Workload not found
+      if (!deletedWorkload) {
+
+        return res.status(404).json({
+          message:
+            "Workload not found."
+        });
+
+      }
+
+
+      // Success
+      return res.json({
+
+        message:
+          "Workload deleted successfully."
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "DELETE WORKLOAD ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to delete workload."
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// CONSULTATION - CREATE
+// =====================================================
 
 app.post(
   "/api/consultations",
+
   async (req, res) => {
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "CONSULTATION ROUTE HIT"
+    );
+
+    console.log(
+      "Request body:",
+      req.body
+    );
+
+    console.log(
+      "================================="
+    );
+
 
     try {
 
       const {
         name,
-        phone,
         email,
+        phone,
         service,
-        message,
+        message
       } = req.body;
 
+
+      // Validate required fields
       if (
         !name ||
-        !phone ||
         !email ||
+        !phone ||
         !service
       ) {
 
         return res.status(400).json({
+
           message:
-            "Name, phone, email and service are required",
+            "Name, email, phone and service are required"
+
         });
 
       }
 
+
+      // Save consultation in MongoDB
       const consultation =
         await Consultation.create({
 
           name:
             name.trim(),
 
+          email:
+            email.trim(),
+
           phone:
             phone.trim(),
-
-          email:
-            email
-              .trim()
-              .toLowerCase(),
 
           service:
             service.trim(),
@@ -669,147 +853,241 @@ app.post(
           message:
             message
               ? message.trim()
-              : "",
-
-          status:
-            "New",
+              : ""
 
         });
+
+
+      console.log(
+        "Consultation saved successfully:",
+        consultation._id
+      );
+
+
+      // =================================================
+      // SEND EMAIL TO OWNER
+      // =================================================
 
       try {
 
-        await emailTransporter.sendMail({
+        const receiverEmail =
+          process.env.EMAIL_TO ||
+          process.env.EMAIL_USER;
 
-          from:
-            `"CA Website" <${process.env.EMAIL_USER}>`,
 
-          to:
-            process.env.OWNER_EMAIL,
+        if (!process.env.EMAIL_USER) {
 
-          replyTo:
-            email.trim(),
+          throw new Error(
+            "EMAIL_USER is missing in .env"
+          );
 
-          subject:
-            `New Consultation Booking - ${service}`,
+        }
 
-          html: `
 
-            <div
-              style="
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-                color: #222;
-              "
-            >
+        if (!process.env.EMAIL_PASS) {
 
-              <h2
-                style="color: #0b315d;"
-              >
-                New Consultation Booking
-              </h2>
+          throw new Error(
+            "EMAIL_PASS is missing in .env"
+          );
 
-              <p>
-                A new consultation has been booked through the CA website.
-              </p>
+        }
 
-              <hr>
 
-              <h3>
-                Client Details
-              </h3>
+        if (!receiverEmail) {
 
-              <p>
-                <strong>Name:</strong>
-                ${name.trim()}
-              </p>
+          throw new Error(
+            "EMAIL_TO and EMAIL_USER are both missing in .env"
+          );
 
-              <p>
-                <strong>Phone:</strong>
-                ${phone.trim()}
-              </p>
+        }
 
-              <p>
-                <strong>Email:</strong>
-                ${email.trim()}
-              </p>
-
-              <p>
-                <strong>Service:</strong>
-                ${service.trim()}
-              </p>
-
-              <p>
-                <strong>Message:</strong>
-                ${
-                  message
-                    ? message.trim()
-                    : "No message provided"
-                }
-              </p>
-
-              <hr>
-
-              <p>
-                <strong>Status:</strong>
-                New
-              </p>
-
-              <p>
-                This consultation has been saved in the database.
-              </p>
-
-            </div>
-
-          `,
-        });
 
         console.log(
-          "Consultation email sent successfully"
+          "================================="
         );
+
+        console.log(
+          "STARTING CONSULTATION EMAIL"
+        );
+
+        console.log(
+          "FROM:",
+          process.env.EMAIL_USER
+        );
+
+        console.log(
+          "TO:",
+          receiverEmail
+        );
+
+        console.log(
+          "================================="
+        );
+
+
+        const mailResult =
+          await emailTransporter.sendMail({
+
+            from:
+              process.env.EMAIL_USER,
+
+            to:
+              receiverEmail,
+
+            replyTo:
+              email.trim(),
+
+            subject:
+              "New Consultation Request - CA Anil Raghuvanshi",
+
+            html: `
+
+              <div
+                style="
+                  font-family: Arial, sans-serif;
+                  line-height: 1.6;
+                  max-width: 600px;
+                  margin: auto;
+                "
+              >
+
+                <h2>
+                  New Consultation Request
+                </h2>
+
+                <hr>
+
+                <p>
+                  <strong>Name:</strong>
+                  ${name.trim()}
+                </p>
+
+                <p>
+                  <strong>Email:</strong>
+                  ${email.trim()}
+                </p>
+
+                <p>
+                  <strong>Phone:</strong>
+                  ${phone.trim()}
+                </p>
+
+                <p>
+                  <strong>Service:</strong>
+                  ${service.trim()}
+                </p>
+
+                <p>
+                  <strong>Message:</strong>
+                  ${
+                    message
+                      ? message.trim()
+                      : "No message provided"
+                  }
+                </p>
+
+                <hr>
+
+                <p>
+                  This consultation request was
+                  submitted through the
+                  CA Anil Raghuvanshi website.
+                </p>
+
+              </div>
+
+            `
+
+          });
+
+
+        console.log(
+          "================================="
+        );
+
+        console.log(
+          "CONSULTATION EMAIL SENT SUCCESSFULLY"
+        );
+
+        console.log(
+          "MESSAGE ID:",
+          mailResult.messageId
+        );
+
+        console.log(
+          "RESPONSE:",
+          mailResult.response
+        );
+
+        console.log(
+          "================================="
+        );
+
 
       } catch (emailError) {
 
         console.error(
-          "CONSULTATION EMAIL ERROR:",
+          "================================="
+        );
+
+        console.error(
+          "CONSULTATION EMAIL ERROR"
+        );
+
+        console.error(
+          "NAME:",
+          emailError.name
+        );
+
+        console.error(
+          "MESSAGE:",
           emailError.message
         );
 
+        console.error(
+          "CODE:",
+          emailError.code
+        );
+
+        console.error(
+          "COMMAND:",
+          emailError.command
+        );
+
+        console.error(
+          "RESPONSE:",
+          emailError.response
+        );
+
+        console.error(
+          "RESPONSE CODE:",
+          emailError.responseCode
+        );
+
+        console.error(
+          "================================="
+        );
+
+        // Consultation is already saved.
+        // Do not fail the consultation API
+        // only because email failed.
+
       }
+
+
+      // =================================================
+      // FINAL RESPONSE
+      // =================================================
 
       return res.status(201).json({
 
         message:
-          "Consultation booked successfully",
+          "Consultation submitted successfully",
 
-        consultation: {
-
-          _id:
-            consultation._id,
-
-          name:
-            consultation.name,
-
-          phone:
-            consultation.phone,
-
-          email:
-            consultation.email,
-
-          service:
-            consultation.service,
-
-          message:
-            consultation.message,
-
-          status:
-            consultation.status,
-
-          createdAt:
-            consultation.createdAt,
-
-        },
+        consultation
 
       });
+
 
     } catch (error) {
 
@@ -819,8 +1097,10 @@ app.post(
       );
 
       return res.status(500).json({
+
         message:
-          "Failed to book consultation",
+          "Failed to submit consultation"
+
       });
 
     }
@@ -829,29 +1109,27 @@ app.post(
 );
 
 
-// ===============================
+// =====================================================
 // GET CONSULTATIONS
-// OWNER ONLY
-// ===============================
+// =====================================================
 
 app.get(
   "/api/consultations",
   authenticateToken,
   requireOwner,
+
   async (req, res) => {
 
     try {
 
       const consultations =
         await Consultation.find()
-          .sort({
-            createdAt:
-              -1,
-          });
+        .sort({
+          createdAt: -1
+        });
 
-      return res.json(
-        consultations
-      );
+
+      res.json(consultations);
 
     } catch (error) {
 
@@ -860,9 +1138,9 @@ app.get(
         error
       );
 
-      return res.status(500).json({
+      res.status(500).json({
         message:
-          "Failed to load consultations",
+          "Failed to fetch consultations"
       });
 
     }
@@ -871,41 +1149,23 @@ app.get(
 );
 
 
-// ===============================
-// UPDATE CONSULTATION STATUS
-// OWNER ONLY
-// ===============================
+// =====================================================
+// UPDATE CONSULTATION
+// =====================================================
 
 app.put(
   "/api/consultations/:id",
   authenticateToken,
   requireOwner,
+
   async (req, res) => {
 
     try {
 
       const {
-        status,
+        status
       } = req.body;
 
-      const allowedStatuses = [
-        "New",
-        "Contacted",
-        "Completed",
-      ];
-
-      if (
-        !allowedStatuses.includes(
-          status
-        )
-      ) {
-
-        return res.status(400).json({
-          message:
-            "Invalid consultation status",
-        });
-
-      }
 
       const consultation =
         await Consultation.findByIdAndUpdate(
@@ -913,34 +1173,33 @@ app.put(
           req.params.id,
 
           {
-            status,
+            status
           },
 
           {
-            new:
-              true,
-
-            runValidators:
-              true,
+            new: true,
+            runValidators: true
           }
 
         );
+
 
       if (!consultation) {
 
         return res.status(404).json({
           message:
-            "Consultation not found",
+            "Consultation not found"
         });
 
       }
 
-      return res.json({
+
+      res.json({
 
         message:
-          "Consultation status updated",
+          "Consultation updated successfully",
 
-        consultation,
+        consultation
 
       });
 
@@ -951,9 +1210,9 @@ app.put(
         error
       );
 
-      return res.status(500).json({
+      res.status(500).json({
         message:
-          "Failed to update consultation",
+          "Failed to update consultation"
       });
 
     }
@@ -962,72 +1221,90 @@ app.put(
 );
 
 
-// ===============================
-// START SERVER
-// ===============================
+// =====================================================
+// MONGODB + SERVER START
+// =====================================================
 
 const PORT =
-  process.env.PORT ||
-  5000;
+  process.env.PORT || 5000;
 
 
 async function startServer() {
 
   try {
 
-    const mongoUri =
-      process.env.MONGO_URI;
-
-    if (!mongoUri) {
-
-      console.error(
-        "MONGO_URI environment variable is missing"
-      );
-
-      process.exit(1);
-
-    }
-
-    if (!process.env.JWT_SECRET) {
-
-      console.error(
-        "JWT_SECRET environment variable is missing"
-      );
-
-      process.exit(1);
-
-    }
+    console.log(
+      "================================="
+    );
 
     console.log(
       "Connecting to MongoDB..."
     );
 
-    await mongoose.connect(
-      mongoUri,
-      {
-        serverSelectionTimeoutMS: 30000,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-      }
+    console.log(
+      "================================="
     );
+
+
+    if (!process.env.MONGO_URI) {
+
+      console.error(
+        "MONGO_URI is missing in .env"
+      );
+
+      process.exit(1);
+
+    }
+
+
+    if (!process.env.JWT_SECRET) {
+
+      console.error(
+        "JWT_SECRET is missing in .env"
+      );
+
+      process.exit(1);
+
+    }
+
+
+    await mongoose.connect(
+      process.env.MONGO_URI
+    );
+
 
     console.log(
       "MongoDB Connected Successfully"
     );
 
+
     app.listen(
       PORT,
       "0.0.0.0",
+
       () => {
 
         console.log(
-          `Server running on port ${PORT}`
+          "================================="
+        );
+
+        console.log(
+          `Server running on http://localhost:${PORT}`
+        );
+
+        console.log(
+          "================================="
         );
 
       }
     );
 
+
   } catch (error) {
+
+    console.error(
+      "================================="
+    );
 
     console.error(
       "MONGODB CONNECTION FAILED"
@@ -1043,12 +1320,9 @@ async function startServer() {
       error.message
     );
 
-    if (error.reason) {
-      console.error(
-        "REASON:",
-        error.reason
-      );
-    }
+    console.error(
+      "================================="
+    );
 
     process.exit(1);
 
