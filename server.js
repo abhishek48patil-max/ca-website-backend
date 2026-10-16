@@ -69,13 +69,7 @@ app.use(
   })
 );
 
-
-
 app.use(express.json());
-
-/* =========================================================
-   MONGODB
-========================================================= */
 
 console.log("=================================");
 console.log("Connecting to MongoDB...");
@@ -96,9 +90,6 @@ mongoose
     console.log("=================================");
   });
 
-/* =========================================================
-   GMAIL NODEMAILER
-========================================================= */
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -109,9 +100,6 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-/* =========================================================
-   TEST EMAIL CONFIGURATION
-========================================================= */
 
 transporter.verify((error, success) => {
   if (error) {
@@ -127,17 +115,11 @@ transporter.verify((error, success) => {
   }
 });
 
-/* =========================================================
-   ROOT
-========================================================= */
 
 app.get("/", (req, res) => {
   res.send("CA Anil Raghuvanshi Backend Running");
 });
 
-/* =========================================================
-   CREATE TEST USER
-========================================================= */
 
 app.post("/api/create-test-user", async (req, res) => {
   try {
@@ -200,9 +182,6 @@ app.post("/api/create-test-user", async (req, res) => {
   }
 });
 
-/* =========================================================
-   LOGIN
-========================================================= */
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -275,9 +254,6 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-/* =========================================================
-   AUTH ME
-========================================================= */
 
 app.get(
   "/api/auth/me",
@@ -314,9 +290,6 @@ app.get(
   }
 );
 
-/* =========================================================
-   GET EMPLOYEES
-========================================================= */
 
 app.get(
   "/api/employees",
@@ -347,6 +320,7 @@ app.get(
     }
   }
 );
+
 
 /* =========================================================
    CREATE EMPLOYEE
@@ -429,6 +403,7 @@ app.post(
   }
 );
 
+
 /* =========================================================
    GET WORKLOAD
 ========================================================= */
@@ -447,7 +422,7 @@ app.get(
         workloads =
           await Workload.find()
             .populate(
-              "employee",
+              "employeeId",
               "name username"
             )
             .sort({
@@ -458,10 +433,10 @@ app.get(
 
         workloads =
           await Workload.find({
-            employee: req.user.id
+            employeeId: req.user.id
           })
             .populate(
-              "employee",
+              "employeeId",
               "name username"
             )
             .sort({
@@ -480,12 +455,19 @@ app.get(
         error
       );
 
+      console.log(
+        "WORKLOAD ERROR MESSAGE:",
+        error.message
+      );
+
       res.status(500).json({
-        message: "Server error"
+        message: "Server error",
+        error: error.message
       });
     }
   }
 );
+
 
 /* =========================================================
    CREATE WORKLOAD
@@ -517,13 +499,33 @@ app.post(
         });
       }
 
+      const employeeUser =
+        await User.findById(employee);
+
+      if (!employeeUser) {
+        return res.status(404).json({
+          message: "Employee not found"
+        });
+      }
+
       const workload =
         await Workload.create({
-          employee,
-          task,
+
+          employeeId:
+            employeeUser._id,
+
+          employeeName:
+            employeeUser.name,
+
+          task:
+            task.trim(),
+
           priority:
             priority || "Medium",
-          deadline,
+
+          deadline:
+            deadline || "",
+
           status:
             status || "Pending"
         });
@@ -532,7 +534,7 @@ app.post(
         await Workload.findById(
           workload._id
         ).populate(
-          "employee",
+          "employeeId",
           "name username"
         );
 
@@ -551,12 +553,19 @@ app.post(
         error
       );
 
+      console.log(
+        "CREATE WORKLOAD ERROR MESSAGE:",
+        error.message
+      );
+
       res.status(500).json({
-        message: "Server error"
+        message: "Server error",
+        error: error.message
       });
     }
   }
 );
+
 
 /* =========================================================
    UPDATE WORKLOAD
@@ -582,7 +591,7 @@ app.put(
 
       if (
         req.user.role !== "owner" &&
-        workload.employee.toString() !==
+        workload.employeeId.toString() !==
           req.user.id.toString()
       ) {
         return res.status(403).json({
@@ -603,12 +612,26 @@ app.put(
       ) {
 
         if (employee !== undefined) {
-          workload.employee =
-            employee;
+
+          const employeeUser =
+            await User.findById(employee);
+
+          if (!employeeUser) {
+            return res.status(404).json({
+              message: "Employee not found"
+            });
+          }
+
+          workload.employeeId =
+            employeeUser._id;
+
+          workload.employeeName =
+            employeeUser.name;
         }
 
         if (task !== undefined) {
-          workload.task = task;
+          workload.task =
+            task;
         }
 
         if (priority !== undefined) {
@@ -640,7 +663,7 @@ app.put(
         await Workload.findById(
           workload._id
         ).populate(
-          "employee",
+          "employeeId",
           "name username"
         );
 
@@ -659,12 +682,19 @@ app.put(
         error
       );
 
+      console.log(
+        "UPDATE WORKLOAD ERROR MESSAGE:",
+        error.message
+      );
+
       res.status(500).json({
-        message: "Server error"
+        message: "Server error",
+        error: error.message
       });
     }
   }
 );
+
 
 /* =========================================================
    DELETE WORKLOAD
@@ -708,9 +738,6 @@ app.delete(
   }
 );
 
-/* =========================================================
-   BOOK CONSULTATION
-========================================================= */
 
 app.post(
   "/api/consultations",
@@ -738,9 +765,6 @@ app.post(
         });
       }
 
-      /* ---------------------------------------------
-         SAVE CONSULTATION IN MONGODB
-      --------------------------------------------- */
 
       const consultation =
         await Consultation.create({
@@ -776,9 +800,6 @@ app.post(
         "================================="
       );
 
-      /* ---------------------------------------------
-         SEND EMAIL USING GMAIL SMTP
-      --------------------------------------------- */
 
       try {
 
@@ -960,6 +981,7 @@ app.post(
         );
       }
 
+
       /* ---------------------------------------------
          RESPONSE
       --------------------------------------------- */
@@ -991,6 +1013,7 @@ app.post(
     }
   }
 );
+
 
 /* =========================================================
    GET CONSULTATIONS
@@ -1027,6 +1050,7 @@ app.get(
     }
   }
 );
+
 
 /* =========================================================
    UPDATE CONSULTATION
@@ -1084,6 +1108,7 @@ app.put(
     }
   }
 );
+
 
 /* =========================================================
    START SERVER
