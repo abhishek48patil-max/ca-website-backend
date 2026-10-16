@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
 
 require("dotenv").config();
 
@@ -18,274 +18,344 @@ const {
 
 const app = express();
 
+const PORT = process.env.PORT || 5000;
 
-// =====================================================
-// CORS
-// =====================================================
+/* =========================================================
+   CORS
+========================================================= */
 
 const allowedOrigins = [
   "http://localhost:5500",
   "http://localhost:5501",
   "http://127.0.0.1:5500",
   "http://127.0.0.1:5501",
+
   "https://curious-kitten-8b981e.netlify.app",
   "https://kaleidoscopic-brioche-25e14d.netlify.app"
 ];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("CORS BLOCKED:", origin);
+
+      return callback(
+        new Error("Not allowed by CORS")
+      );
+    },
+
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization"
+    ]
   })
 );
 
-
-// =====================================================
-// BODY PARSER
-// =====================================================
+app.options("*", cors());
 
 app.use(express.json());
 
+/* =========================================================
+   MONGODB
+========================================================= */
 
-// =====================================================
-// EMAIL CONFIGURATION - RESEND
-// =====================================================
+console.log("=================================");
+console.log("Connecting to MongoDB...");
+console.log("=================================");
 
-const resend = new Resend(
-  process.env.RESEND_API_KEY
-);
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("=================================");
+    console.log("MONGODB CONNECTED SUCCESSFULLY");
+    console.log("=================================");
+  })
+  .catch((error) => {
+    console.log("=================================");
+    console.log("MONGODB CONNECTION FAILED");
+    console.log("NAME:", error.name);
+    console.log("MESSAGE:", error.message);
+    console.log("=================================");
+  });
 
+/* =========================================================
+   GMAIL NODEMAILER
+========================================================= */
 
-// =====================================================
-// HOME ROUTE
-// =====================================================
+const transporter = nodemailer.createTransport({
+  service: "gmail",
 
-app.get("/", (req, res) => {
-
-  res.send(
-    "CA Anil Raghuvanshi Backend Running"
-  );
-
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
 });
 
+/* =========================================================
+   TEST EMAIL CONFIGURATION
+========================================================= */
 
-// =====================================================
-// LOGIN
-// =====================================================
+transporter.verify((error, success) => {
+  if (error) {
+    console.log("=================================");
+    console.log("EMAIL CONFIGURATION ERROR");
+    console.log("NAME:", error.name);
+    console.log("MESSAGE:", error.message);
+    console.log("=================================");
+  } else {
+    console.log("=================================");
+    console.log("EMAIL SERVER READY");
+    console.log("=================================");
+  }
+});
 
-app.post(
-  "/api/auth/login",
-  async (req, res) => {
+/* =========================================================
+   ROOT
+========================================================= */
 
-    try {
+app.get("/", (req, res) => {
+  res.send("CA Anil Raghuvanshi Backend Running");
+});
 
-      const {
-        username,
-        password
-      } = req.body;
+/* =========================================================
+   CREATE TEST USER
+========================================================= */
 
+app.post("/api/create-test-user", async (req, res) => {
+  try {
+    const {
+      name,
+      username,
+      password,
+      role
+    } = req.body;
 
-      // Check input
-      if (!username || !password) {
-
-        return res.status(400).json({
-          message:
-            "Username and password are required"
-        });
-
-      }
-
-
-      // Clean username
-      const cleanUsername =
-        username.trim().toLowerCase();
-
-
-      // Find user
-      const user =
-        await User.findOne({
-          username: cleanUsername
-        });
-
-
-      if (!user) {
-
-        return res.status(401).json({
-          message:
-            "Invalid username or password"
-        });
-
-      }
-
-
-      // Compare password
-      const passwordMatch =
-        await bcrypt.compare(
-          password,
-          user.password
-        );
-
-
-      if (!passwordMatch) {
-
-        return res.status(401).json({
-          message:
-            "Invalid username or password"
-        });
-
-      }
-
-
-      // Create JWT
-      const token =
-        jwt.sign(
-          {
-            id: user._id.toString(),
-            username: user.username,
-            role: user.role
-          },
-
-          process.env.JWT_SECRET,
-
-          {
-            expiresIn: "8h"
-          }
-        );
-
-
-      // Success
-      return res.json({
-
-        token,
-
-        user: {
-          _id: user._id,
-          name: user.name,
-          username: user.username,
-          role: user.role
-        }
-
+    if (
+      !name ||
+      !username ||
+      !password ||
+      !role
+    ) {
+      return res.status(400).json({
+        message: "All fields are required"
       });
-
-    } catch (error) {
-
-      console.error(
-        "LOGIN ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        message:
-          "Server error during login"
-      });
-
     }
 
+    const existingUser = await User.findOne({
+      username: username.toLowerCase().trim()
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: "Username already exists"
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
+    );
+
+    const user = await User.create({
+      name,
+      username: username.toLowerCase().trim(),
+      password: hashedPassword,
+      role
+    });
+
+    res.status(201).json({
+      message: "User created successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        username: user.username,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.log("CREATE USER ERROR:", error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
   }
-);
+});
 
+/* =========================================================
+   LOGIN
+========================================================= */
 
-// =====================================================
-// CHECK CURRENT USER
-// =====================================================
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const {
+      username,
+      password
+    } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        message: "Username and password are required"
+      });
+    }
+
+    const user = await User.findOne({
+      username: username.toLowerCase().trim()
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid username or password"
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        message: "Invalid username or password"
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+        role: user.role,
+        name: user.name
+      },
+
+      process.env.JWT_SECRET,
+
+      {
+        expiresIn: "8h"
+      }
+    );
+
+    res.json({
+      message: "Login successful",
+
+      token,
+
+      user: {
+        id: user._id,
+        name: user.name,
+        username: user.username,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.log("LOGIN ERROR:", error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+});
+
+/* =========================================================
+   AUTH ME
+========================================================= */
 
 app.get(
   "/api/auth/me",
   authenticateToken,
-
   async (req, res) => {
 
     try {
 
-      const user =
-        await User.findById(
-          req.user.id
-        ).select("-password");
-
+      const user = await User.findById(
+        req.user.id
+      ).select("-password");
 
       if (!user) {
-
         return res.status(404).json({
-          message:
-            "User not found"
+          message: "User not found"
         });
-
       }
 
-
-      return res.json(user);
+      res.json({
+        user
+      });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "AUTH ME ERROR:",
         error
       );
 
-      return res.status(500).json({
-        message:
-          "Server error"
+      res.status(500).json({
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// GET EMPLOYEES
-// =====================================================
+/* =========================================================
+   GET EMPLOYEES
+========================================================= */
 
 app.get(
   "/api/employees",
   authenticateToken,
-
+  requireOwner,
   async (req, res) => {
 
     try {
 
-      const employees =
-        await User.find({
-          role: "employee"
-        })
-        .select("-password")
-        .sort({
-          createdAt: -1
-        });
+      const employees = await User.find({
+        role: "employee"
+      }).select("-password");
 
-
-      res.json(employees);
+      res.json({
+        employees
+      });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "GET EMPLOYEES ERROR:",
         error
       );
 
       res.status(500).json({
-        message:
-          "Failed to fetch employees"
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// CREATE EMPLOYEE
-// =====================================================
+/* =========================================================
+   CREATE EMPLOYEE
+========================================================= */
 
 app.post(
   "/api/employees",
   authenticateToken,
   requireOwner,
-
   async (req, res) => {
 
     try {
@@ -296,40 +366,27 @@ app.post(
         password
       } = req.body;
 
-
       if (
         !name ||
         !username ||
         !password
       ) {
-
         return res.status(400).json({
-          message:
-            "Name, username and password are required"
+          message: "All fields are required"
         });
-
       }
-
-
-      const cleanUsername =
-        username.trim().toLowerCase();
-
 
       const existingUser =
         await User.findOne({
-          username: cleanUsername
+          username:
+            username.toLowerCase().trim()
         });
-
 
       if (existingUser) {
-
         return res.status(409).json({
-          message:
-            "Username already exists"
+          message: "Username already exists"
         });
-
       }
-
 
       const hashedPassword =
         await bcrypt.hash(
@@ -337,435 +394,327 @@ app.post(
           10
         );
 
-
       const employee =
         await User.create({
-
-          name:
-            name.trim(),
-
+          name,
           username:
-            cleanUsername,
-
-          password:
-            hashedPassword,
-
-          role:
-            "employee"
-
+            username.toLowerCase().trim(),
+          password: hashedPassword,
+          role: "employee"
         });
 
-
       res.status(201).json({
-
         message:
           "Employee created successfully",
 
         employee: {
-
-          _id: employee._id,
-
-          name:
-            employee.name,
-
-          username:
-            employee.username,
-
-          role:
-            employee.role
-
+          id: employee._id,
+          name: employee.name,
+          username: employee.username,
+          role: employee.role
         }
-
       });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "CREATE EMPLOYEE ERROR:",
         error
       );
 
       res.status(500).json({
-        message:
-          "Failed to create employee"
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// GET WORKLOAD
-// =====================================================
+/* =========================================================
+   GET WORKLOAD
+========================================================= */
 
 app.get(
   "/api/workload",
   authenticateToken,
-
   async (req, res) => {
 
     try {
 
-      const workloads =
-        await Workload.find()
-        .sort({
-          createdAt: -1
-        });
+      let workloads;
 
+      if (req.user.role === "owner") {
 
-      res.json(workloads);
+        workloads =
+          await Workload.find()
+            .populate(
+              "employee",
+              "name username"
+            )
+            .sort({
+              createdAt: -1
+            });
+
+      } else {
+
+        workloads =
+          await Workload.find({
+            employee: req.user.id
+          })
+            .populate(
+              "employee",
+              "name username"
+            )
+            .sort({
+              createdAt: -1
+            });
+      }
+
+      res.json({
+        workloads
+      });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "GET WORKLOAD ERROR:",
         error
       );
 
       res.status(500).json({
-        message:
-          "Failed to fetch workload"
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// CREATE WORKLOAD
-// =====================================================
+/* =========================================================
+   CREATE WORKLOAD
+========================================================= */
 
 app.post(
   "/api/workload",
   authenticateToken,
   requireOwner,
-
   async (req, res) => {
 
     try {
 
       const {
-        employeeId,
+        employee,
         task,
         priority,
         deadline,
         status
       } = req.body;
 
-
       if (
-        !employeeId ||
-        !task ||
-        !priority ||
-        !deadline
+        !employee ||
+        !task
       ) {
-
         return res.status(400).json({
           message:
-            "Employee, task, priority and deadline are required"
+            "Employee and task are required"
         });
-
       }
-
-
-      const employee =
-        await User.findOne({
-
-          _id: employeeId,
-
-          role: "employee"
-
-        });
-
-
-      if (!employee) {
-
-        return res.status(404).json({
-          message:
-            "Employee not found"
-        });
-
-      }
-
 
       const workload =
         await Workload.create({
-
-          employeeId:
-            employeeId,
-
-          employeeName:
-            employee.name,
-
-          task:
-            task.trim(),
-
-          priority,
-
+          employee,
+          task,
+          priority:
+            priority || "Medium",
           deadline,
-
           status:
             status || "Pending"
-
         });
 
+      const populatedWorkload =
+        await Workload.findById(
+          workload._id
+        ).populate(
+          "employee",
+          "name username"
+        );
 
-      return res.status(201).json({
-
+      res.status(201).json({
         message:
-          "Work assigned successfully",
+          "Workload created successfully",
 
-        workload
-
+        workload:
+          populatedWorkload
       });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "CREATE WORKLOAD ERROR:",
         error
       );
 
-      return res.status(500).json({
-        message:
-          "Failed to assign work"
+      res.status(500).json({
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// UPDATE / MODIFY WORKLOAD
-// =====================================================
+/* =========================================================
+   UPDATE WORKLOAD
+========================================================= */
 
 app.put(
   "/api/workload/:id",
   authenticateToken,
-  requireOwner,
-
   async (req, res) => {
 
     try {
 
-      const workloadId =
-        req.params.id;
+      const workload =
+        await Workload.findById(
+          req.params.id
+        );
 
-
-      // Check valid MongoDB ID
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          workloadId
-        )
-      ) {
-
-        return res.status(400).json({
-          message:
-            "Invalid workload ID."
+      if (!workload) {
+        return res.status(404).json({
+          message: "Workload not found"
         });
-
       }
 
+      if (
+        req.user.role !== "owner" &&
+        workload.employee.toString() !==
+          req.user.id.toString()
+      ) {
+        return res.status(403).json({
+          message: "Access denied"
+        });
+      }
 
       const {
+        employee,
         task,
         priority,
         deadline,
         status
       } = req.body;
 
-
-      // Validate task
       if (
-        !task ||
-        !task.trim()
+        req.user.role === "owner"
       ) {
 
-        return res.status(400).json({
-          message:
-            "Task is required."
-        });
+        if (employee !== undefined) {
+          workload.employee =
+            employee;
+        }
 
+        if (task !== undefined) {
+          workload.task = task;
+        }
+
+        if (priority !== undefined) {
+          workload.priority =
+            priority;
+        }
+
+        if (deadline !== undefined) {
+          workload.deadline =
+            deadline;
+        }
+
+        if (status !== undefined) {
+          workload.status =
+            status;
+        }
+
+      } else {
+
+        if (status !== undefined) {
+          workload.status =
+            status;
+        }
       }
 
+      await workload.save();
 
-      // Update workload
       const updatedWorkload =
-        await Workload.findByIdAndUpdate(
-
-          workloadId,
-
-          {
-            task:
-              task.trim(),
-
-            priority:
-              priority || "Medium",
-
-            deadline:
-              deadline || "",
-
-            status:
-              status || "Pending"
-          },
-
-          {
-            new: true,
-
-            runValidators: true
-          }
-
+        await Workload.findById(
+          workload._id
+        ).populate(
+          "employee",
+          "name username"
         );
 
-
-      // Workload not found
-      if (!updatedWorkload) {
-
-        return res.status(404).json({
-          message:
-            "Workload not found."
-        });
-
-      }
-
-
-      // Success
-      return res.json({
-
+      res.json({
         message:
-          "Workload updated successfully.",
+          "Workload updated successfully",
 
         workload:
           updatedWorkload
-
       });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "UPDATE WORKLOAD ERROR:",
         error
       );
 
-      return res.status(500).json({
-        message:
-          "Failed to update workload."
+      res.status(500).json({
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// DELETE WORKLOAD
-// =====================================================
+/* =========================================================
+   DELETE WORKLOAD
+========================================================= */
 
 app.delete(
   "/api/workload/:id",
   authenticateToken,
   requireOwner,
-
   async (req, res) => {
 
     try {
 
-      const workloadId =
-        req.params.id;
-
-
-      // Check valid MongoDB ID
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          workloadId
-        )
-      ) {
-
-        return res.status(400).json({
-          message:
-            "Invalid workload ID."
-        });
-
-      }
-
-
-      // Delete workload
-      const deletedWorkload =
+      const workload =
         await Workload.findByIdAndDelete(
-          workloadId
+          req.params.id
         );
 
-
-      // Workload not found
-      if (!deletedWorkload) {
-
+      if (!workload) {
         return res.status(404).json({
-          message:
-            "Workload not found."
+          message: "Workload not found"
         });
-
       }
 
-
-      // Success
-      return res.json({
-
+      res.json({
         message:
-          "Workload deleted successfully."
-
+          "Workload deleted successfully"
       });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "DELETE WORKLOAD ERROR:",
         error
       );
 
-      return res.status(500).json({
-        message:
-          "Failed to delete workload"
+      res.status(500).json({
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// CONSULTATION - CREATE
-// =====================================================
+/* =========================================================
+   BOOK CONSULTATION
+========================================================= */
 
 app.post(
   "/api/consultations",
-
   async (req, res) => {
-
-    console.log(
-      "================================="
-    );
-
-    console.log(
-      "CONSULTATION ROUTE HIT"
-    );
-
-    console.log(
-      "Request body:",
-      req.body
-    );
-
-    console.log(
-      "================================="
-    );
-
 
     try {
 
@@ -777,26 +726,22 @@ app.post(
         message
       } = req.body;
 
-
-      // Validate required fields
       if (
         !name ||
         !email ||
         !phone ||
         !service
       ) {
-
         return res.status(400).json({
-
           message:
             "Name, email, phone and service are required"
-
         });
-
       }
 
+      /* ---------------------------------------------
+         SAVE CONSULTATION IN MONGODB
+      --------------------------------------------- */
 
-      // Save consultation in MongoDB
       const consultation =
         await Consultation.create({
 
@@ -816,56 +761,50 @@ app.post(
             message
               ? message.trim()
               : ""
-
         });
 
+      console.log(
+        "================================="
+      );
 
       console.log(
         "Consultation saved successfully:",
         consultation._id
       );
 
+      console.log(
+        "================================="
+      );
 
-      // =================================================
-      // SEND EMAIL TO OWNER USING RESEND
-      // =================================================
+      /* ---------------------------------------------
+         SEND EMAIL USING GMAIL SMTP
+      --------------------------------------------- */
 
       try {
 
         const receiverEmail =
           process.env.EMAIL_TO;
 
-        // Using EMAIL_USER as sender
         const senderEmail =
           process.env.EMAIL_USER;
 
-
-        if (!process.env.RESEND_API_KEY) {
-
-          throw new Error(
-            "RESEND_API_KEY is missing"
-          );
-
-        }
-
-
-        if (!receiverEmail) {
-
-          throw new Error(
-            "EMAIL_TO is missing"
-          );
-
-        }
-
-
         if (!senderEmail) {
-
           throw new Error(
             "EMAIL_USER is missing"
           );
-
         }
 
+        if (!receiverEmail) {
+          throw new Error(
+            "EMAIL_TO is missing"
+          );
+        }
+
+        if (!process.env.EMAIL_PASS) {
+          throw new Error(
+            "EMAIL_PASS is missing"
+          );
+        }
 
         console.log(
           "================================="
@@ -889,9 +828,8 @@ app.post(
           "================================="
         );
 
-
-        const { data, error } =
-          await resend.emails.send({
+        const mailResult =
+          await transporter.sendMail({
 
             from:
               senderEmail,
@@ -913,73 +851,72 @@ app.post(
                   line-height: 1.6;
                   max-width: 600px;
                   margin: auto;
+                  padding: 20px;
+                  border: 1px solid #ddd;
+                  border-radius: 10px;
                 "
               >
 
-                <h2>
+                <h2
+                  style="
+                    color: #0b315d;
+                  "
+                >
                   New Consultation Request
                 </h2>
+
+                <p>
+                  A new consultation request
+                  has been submitted through
+                  the CA Anil Raghuvanshi website.
+                </p>
 
                 <hr>
 
                 <p>
                   <strong>Name:</strong>
-                  ${name.trim()}
+                  ${name}
                 </p>
 
                 <p>
                   <strong>Email:</strong>
-                  ${email.trim()}
+                  ${email}
                 </p>
 
                 <p>
                   <strong>Phone:</strong>
-                  ${phone.trim()}
+                  ${phone}
                 </p>
 
                 <p>
                   <strong>Service:</strong>
-                  ${service.trim()}
+                  ${service}
                 </p>
 
                 <p>
                   <strong>Message:</strong>
                   ${
-                    message
-                      ? message.trim()
-                      : "No message provided"
+                    message ||
+                    "No message provided"
                   }
                 </p>
 
                 <hr>
 
-                <p>
-                  This consultation request was
-                  submitted through the
+                <p
+                  style="
+                    color: #666;
+                  "
+                >
+                  This email was generated
+                  automatically from the
                   CA Anil Raghuvanshi website.
                 </p>
 
               </div>
 
             `
-
           });
-
-
-        if (error) {
-
-          console.error(
-            "RESEND EMAIL ERROR:",
-            error
-          );
-
-          throw new Error(
-            error.message ||
-            "Resend email failed"
-          );
-
-        }
-
 
         console.log(
           "================================="
@@ -991,48 +928,41 @@ app.post(
 
         console.log(
           "EMAIL ID:",
-          data?.id
+          mailResult.messageId
         );
 
         console.log(
           "================================="
         );
 
-
       } catch (emailError) {
 
-        console.error(
+        console.log(
           "================================="
         );
 
-        console.error(
+        console.log(
           "CONSULTATION EMAIL ERROR"
         );
 
-        console.error(
+        console.log(
           "NAME:",
           emailError.name
         );
 
-        console.error(
+        console.log(
           "MESSAGE:",
           emailError.message
         );
 
-        console.error(
+        console.log(
           "================================="
         );
-
-        // Consultation is already saved.
-        // Do not fail the consultation API
-        // only because email failed.
-
       }
 
-
-      // =================================================
-      // FINAL RESPONSE
-      // =================================================
+      /* ---------------------------------------------
+         RESPONSE
+      --------------------------------------------- */
 
       return res.status(201).json({
 
@@ -1043,93 +973,79 @@ app.post(
 
       });
 
-
     } catch (error) {
 
-      console.error(
-        "CREATE CONSULTATION ERROR:",
+      console.log(
+        "CONSULTATION ERROR:",
         error
       );
 
       return res.status(500).json({
 
         message:
-          "Failed to submit consultation"
+          "Failed to submit consultation",
 
+        error:
+          error.message
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// GET CONSULTATIONS
-// =====================================================
+/* =========================================================
+   GET CONSULTATIONS
+========================================================= */
 
 app.get(
   "/api/consultations",
   authenticateToken,
   requireOwner,
-
   async (req, res) => {
 
     try {
 
       const consultations =
         await Consultation.find()
-        .sort({
-          createdAt: -1
-        });
+          .sort({
+            createdAt: -1
+          });
 
-
-      res.json(consultations);
+      res.json({
+        consultations
+      });
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "GET CONSULTATIONS ERROR:",
         error
       );
 
       res.status(500).json({
-        message:
-          "Failed to fetch consultations"
+        message: "Server error"
       });
-
     }
-
   }
 );
 
-
-// =====================================================
-// UPDATE CONSULTATION
-// =====================================================
+/* =========================================================
+   UPDATE CONSULTATION
+========================================================= */
 
 app.put(
   "/api/consultations/:id",
   authenticateToken,
   requireOwner,
-
   async (req, res) => {
 
     try {
-
-      const {
-        status
-      } = req.body;
-
 
       const consultation =
         await Consultation.findByIdAndUpdate(
 
           req.params.id,
 
-          {
-            status
-          },
+          req.body,
 
           {
             new: true,
@@ -1138,16 +1054,13 @@ app.put(
 
         );
 
-
       if (!consultation) {
 
         return res.status(404).json({
           message:
             "Consultation not found"
         });
-
       }
-
 
       res.json({
 
@@ -1160,130 +1073,41 @@ app.put(
 
     } catch (error) {
 
-      console.error(
+      console.log(
         "UPDATE CONSULTATION ERROR:",
         error
       );
 
       res.status(500).json({
-        message:
-          "Failed to update consultation"
+        message: "Server error"
       });
-
     }
-
   }
 );
 
+/* =========================================================
+   START SERVER
+========================================================= */
 
-// =====================================================
-// MONGODB + SERVER START
-// =====================================================
-
-const PORT =
-  process.env.PORT || 5000;
-
-
-async function startServer() {
-
-  try {
+app.listen(
+  PORT,
+  () => {
 
     console.log(
       "================================="
     );
 
     console.log(
-      "Connecting to MongoDB..."
+      `Server running on port ${PORT}`
+    );
+
+    console.log(
+      "CA Anil Raghuvanshi Backend"
     );
 
     console.log(
       "================================="
     );
-
-
-    if (!process.env.MONGO_URI) {
-
-      console.error(
-        "MONGO_URI is missing in .env"
-      );
-
-      process.exit(1);
-
-    }
-
-
-    if (!process.env.JWT_SECRET) {
-
-      console.error(
-        "JWT_SECRET is missing in .env"
-      );
-
-      process.exit(1);
-
-    }
-
-
-    await mongoose.connect(
-      process.env.MONGO_URI
-    );
-
-
-    console.log(
-      "MongoDB Connected Successfully"
-    );
-
-
-    app.listen(
-      PORT,
-      "0.0.0.0",
-
-      () => {
-
-        console.log(
-          "================================="
-        );
-
-        console.log(
-          `Server running on http://localhost:${PORT}`
-        );
-
-        console.log(
-          "================================="
-        );
-
-      }
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "================================="
-    );
-
-    console.error(
-      "MONGODB CONNECTION FAILED"
-    );
-
-    console.error(
-      "NAME:",
-      error.name
-    );
-
-    console.error(
-      "MESSAGE:",
-      error.message
-    );
-
-    console.error(
-      "================================="
-    );
-
-    process.exit(1);
 
   }
-
-}
-
-
-startServer();
+);
