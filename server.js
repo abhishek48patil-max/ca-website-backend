@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 require("dotenv").config();
 
@@ -28,7 +28,8 @@ const allowedOrigins = [
   "http://localhost:5501",
   "http://127.0.0.1:5500",
   "http://127.0.0.1:5501",
-  "https://curious-kitten-8b981e.netlify.app"
+  "https://curious-kitten-8b981e.netlify.app",
+  "https://kaleidoscopic-brioche-25e14d.netlify.app"
 ];
 
 app.use(
@@ -41,8 +42,6 @@ app.use(
 );
 
 
-
-
 // =====================================================
 // BODY PARSER
 // =====================================================
@@ -51,52 +50,12 @@ app.use(express.json());
 
 
 // =====================================================
-// EMAIL CONFIGURATION
+// EMAIL CONFIGURATION - RESEND
 // =====================================================
 
-const emailTransporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000
-});
-
-// Check email configuration when server starts
-emailTransporter.verify((error) => {
-
-  if (error) {
-
-    console.error(
-      "================================="
-    );
-
-    console.error(
-      "EMAIL CONFIGURATION ERROR"
-    );
-
-    console.error(
-      error.message
-    );
-
-    console.error(
-      "================================="
-    );
-
-  } else {
-
-    console.log(
-      "Email service is ready"
-    );
-
-  }
-
-});
+const resend = new Resend(
+  process.env.RESEND_API_KEY
+);
 
 
 // =====================================================
@@ -772,7 +731,7 @@ app.delete(
 
       return res.status(500).json({
         message:
-          "Failed to delete workload."
+          "Failed to delete workload"
       });
 
     }
@@ -868,29 +827,22 @@ app.post(
 
 
       // =================================================
-      // SEND EMAIL TO OWNER
+      // SEND EMAIL TO OWNER USING RESEND
       // =================================================
 
       try {
 
         const receiverEmail =
-          process.env.EMAIL_TO ||
-          process.env.EMAIL_USER;
+          process.env.EMAIL_TO;
+
+        const senderEmail =
+          process.env.EMAIL_FROM;
 
 
-        if (!process.env.EMAIL_USER) {
-
-          throw new Error(
-            "EMAIL_USER is missing in .env"
-          );
-
-        }
-
-
-        if (!process.env.EMAIL_PASS) {
+        if (!process.env.RESEND_API_KEY) {
 
           throw new Error(
-            "EMAIL_PASS is missing in .env"
+            "RESEND_API_KEY is missing"
           );
 
         }
@@ -899,7 +851,16 @@ app.post(
         if (!receiverEmail) {
 
           throw new Error(
-            "EMAIL_TO and EMAIL_USER are both missing in .env"
+            "EMAIL_TO is missing"
+          );
+
+        }
+
+
+        if (!senderEmail) {
+
+          throw new Error(
+            "EMAIL_FROM is missing"
           );
 
         }
@@ -915,7 +876,7 @@ app.post(
 
         console.log(
           "FROM:",
-          process.env.EMAIL_USER
+          senderEmail
         );
 
         console.log(
@@ -928,11 +889,11 @@ app.post(
         );
 
 
-        const mailResult =
-          await emailTransporter.sendMail({
+        const { data, error } =
+          await resend.emails.send({
 
             from:
-              process.env.EMAIL_USER,
+              senderEmail,
 
             to:
               receiverEmail,
@@ -1004,6 +965,21 @@ app.post(
           });
 
 
+        if (error) {
+
+          console.error(
+            "RESEND EMAIL ERROR:",
+            error
+          );
+
+          throw new Error(
+            error.message ||
+            "Resend email failed"
+          );
+
+        }
+
+
         console.log(
           "================================="
         );
@@ -1013,13 +989,8 @@ app.post(
         );
 
         console.log(
-          "MESSAGE ID:",
-          mailResult.messageId
-        );
-
-        console.log(
-          "RESPONSE:",
-          mailResult.response
+          "EMAIL ID:",
+          data?.id
         );
 
         console.log(
@@ -1045,26 +1016,6 @@ app.post(
         console.error(
           "MESSAGE:",
           emailError.message
-        );
-
-        console.error(
-          "CODE:",
-          emailError.code
-        );
-
-        console.error(
-          "COMMAND:",
-          emailError.command
-        );
-
-        console.error(
-          "RESPONSE:",
-          emailError.response
-        );
-
-        console.error(
-          "RESPONSE CODE:",
-          emailError.responseCode
         );
 
         console.error(
