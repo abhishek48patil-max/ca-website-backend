@@ -835,8 +835,9 @@ app.post(
         const receiverEmail =
           process.env.EMAIL_TO;
 
+        // Using EMAIL_USER as sender
         const senderEmail =
-          process.env.EMAIL_FROM;
+          process.env.EMAIL_USER;
 
 
         if (!process.env.RESEND_API_KEY) {
@@ -860,7 +861,7 @@ app.post(
         if (!senderEmail) {
 
           throw new Error(
-            "EMAIL_FROM is missing"
+            "EMAIL_USER is missing"
           );
 
         }
