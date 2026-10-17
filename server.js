@@ -40,8 +40,6 @@ app.use(
   cors({
     origin: function (origin, callback) {
 
-      // Allow requests without origin
-      // such as Postman/server-side requests
       if (!origin) {
         return callback(null, true);
       }
@@ -103,26 +101,27 @@ mongoose
 
 // ======================================================
 // EMAIL CONFIGURATION
+// RESEND SMTP
 // ======================================================
 
 let emailTransporter = null;
 
 if (
-  process.env.EMAIL_USER &&
-  process.env.EMAIL_PASS
+  process.env.RESEND_SMTP_USER &&
+  process.env.RESEND_SMTP_PASS
 ) {
 
   emailTransporter = nodemailer.createTransport({
 
-    host: "smtp.gmail.com",
+    host: "smtp.resend.com",
 
     port: 465,
 
     secure: true,
 
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
+      user: process.env.RESEND_SMTP_USER,
+      pass: process.env.RESEND_SMTP_PASS
     },
 
     connectionTimeout: 10000,
@@ -139,14 +138,14 @@ if (
     if (error) {
 
       console.error(
-        "EMAIL CONFIGURATION ERROR:",
+        "RESEND SMTP ERROR:",
         error.message
       );
 
     } else {
 
       console.log(
-        "Email transporter ready"
+        "Resend SMTP transporter ready"
       );
 
     }
@@ -156,7 +155,7 @@ if (
 } else {
 
   console.log(
-    "EMAIL_USER or EMAIL_PASS is missing. Email functionality disabled."
+    "RESEND_SMTP_USER or RESEND_SMTP_PASS is missing."
   );
 
 }
@@ -1271,7 +1270,7 @@ app.post(
 
 
       // --------------------------------------------------
-      // RESPOND TO FRONTEND IMMEDIATELY
+      // RESPOND TO FRONTEND
       // --------------------------------------------------
 
       res.status(201).json({
@@ -1292,17 +1291,18 @@ app.post(
 
       if (
         emailTransporter &&
-        process.env.EMAIL_USER
+        process.env.EMAIL_FROM &&
+        process.env.EMAIL_TO
       ) {
 
         emailTransporter
           .sendMail({
 
             from:
-              process.env.EMAIL_USER,
+              process.env.EMAIL_FROM,
 
             to:
-              process.env.EMAIL_USER,
+              process.env.EMAIL_TO,
 
             replyTo:
               email.trim(),
@@ -1400,7 +1400,7 @@ app.post(
       } else {
 
         console.error(
-          "CONSULTATION EMAIL NOT SENT: EMAIL_USER or EMAIL_PASS is missing."
+          "CONSULTATION EMAIL NOT SENT: EMAIL_FROM or EMAIL_TO is missing."
         );
 
       }
