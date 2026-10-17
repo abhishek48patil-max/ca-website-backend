@@ -1172,7 +1172,7 @@ app.delete(
 // ======================================================
 
 app.post(
-  "/api/consultation",
+  "/api/consultations",
   async (req, res) => {
 
     try {
