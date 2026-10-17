@@ -612,7 +612,7 @@ app.post(
 // ======================================================
 // GET WORKLOAD
 // OWNER = ALL WORKLOADS
-// EMPLOYEE = OWN WORKLOADS
+// EMPLOYEE = OWN WORKLOADS ONLY
 // ======================================================
 
 app.get(
@@ -796,11 +796,13 @@ app.post(
 
 // ======================================================
 // UPDATE WORKLOAD
+// OWNER ONLY
 // ======================================================
 
 app.put(
   "/api/workload/:id",
   authenticateToken,
+  requireOwner,
   async (req, res) => {
 
     try {
@@ -843,34 +845,24 @@ app.put(
 
       }
 
+      const {
+        employeeId,
+        employee,
+        task,
+        priority,
+        deadline,
+        status
+      } = req.body;
 
-      // ==================================================
-      // EMPLOYEE UPDATE
-      // ==================================================
+      const selectedEmployeeId =
+        employeeId || employee;
 
-      if (
-        req.user.role === "employee"
-      ) {
-
-        if (
-          workload.employeeId &&
-          workload.employeeId.toString() !==
-            req.user.id.toString()
-        ) {
-
-          return res.status(403).json({
-
-            success: false,
-
-            message:
-              "You can update only your own workload"
-
-          });
-
-        }
+      if (selectedEmployeeId) {
 
         if (
-          typeof req.body.status === "undefined"
+          !mongoose.Types.ObjectId.isValid(
+            selectedEmployeeId
+          )
         ) {
 
           return res.status(400).json({
@@ -878,166 +870,95 @@ app.put(
             success: false,
 
             message:
-              "Status is required"
+              "Invalid employee ID"
 
           });
 
         }
 
-        workload.status =
-          req.body.status;
+        const selectedEmployee =
+          await User.findOne({
 
-        await workload.save();
+            _id: selectedEmployeeId,
+
+            role: "employee"
+
+          });
+
+        if (!selectedEmployee) {
+
+          return res.status(404).json({
+
+            success: false,
+
+            message:
+              "Selected employee not found"
+
+          });
+
+        }
+
+        workload.employeeId =
+          selectedEmployee._id;
+
+        workload.employeeName =
+          selectedEmployee.name;
 
       }
 
-
-      // ==================================================
-      // OWNER UPDATE
-      // ==================================================
-
-      else if (
-        req.user.role === "owner"
+      if (
+        typeof task !== "undefined"
       ) {
 
-        const {
-          employeeId,
-          employee,
-          task,
-          priority,
-          deadline,
-          status
-        } = req.body;
-
-
-        const selectedEmployeeId =
-          employeeId || employee;
-
-
-        if (selectedEmployeeId) {
-
-          if (
-            !mongoose.Types.ObjectId.isValid(
-              selectedEmployeeId
-            )
-          ) {
-
-            return res.status(400).json({
-
-              success: false,
-
-              message:
-                "Invalid employee ID"
-
-            });
-
-          }
-
-          const selectedEmployee =
-            await User.findOne({
-
-              _id: selectedEmployeeId,
-
-              role: "employee"
-
-            });
-
-          if (!selectedEmployee) {
-
-            return res.status(404).json({
-
-              success: false,
-
-              message:
-                "Selected employee not found"
-
-            });
-
-          }
-
-          workload.employeeId =
-            selectedEmployee._id;
-
-          workload.employeeName =
-            selectedEmployee.name;
-
-        }
-
-
         if (
-          typeof task !== "undefined"
+          typeof task !== "string" ||
+          !task.trim()
         ) {
 
-          if (
-            typeof task !== "string" ||
-            !task.trim()
-          ) {
+          return res.status(400).json({
 
-            return res.status(400).json({
+            success: false,
 
-              success: false,
+            message:
+              "Task cannot be empty"
 
-              message:
-                "Task cannot be empty"
-
-            });
-
-          }
-
-          workload.task =
-            task.trim();
+          });
 
         }
 
-
-        if (
-          typeof priority !== "undefined"
-        ) {
-
-          workload.priority =
-            priority;
-
-        }
-
-
-        if (
-          typeof deadline !== "undefined"
-        ) {
-
-          workload.deadline =
-            deadline || null;
-
-        }
-
-
-        if (
-          typeof status !== "undefined"
-        ) {
-
-          workload.status =
-            status;
-
-        }
-
-
-        await workload.save();
+        workload.task =
+          task.trim();
 
       }
 
+      if (
+        typeof priority !== "undefined"
+      ) {
 
-      else {
-
-        return res.status(403).json({
-
-          success: false,
-
-          message:
-            "You are not authorized to update workload"
-
-        });
+        workload.priority =
+          priority;
 
       }
 
+      if (
+        typeof deadline !== "undefined"
+      ) {
+
+        workload.deadline =
+          deadline || null;
+
+      }
+
+      if (
+        typeof status !== "undefined"
+      ) {
+
+        workload.status =
+          status;
+
+      }
+
+      await workload.save();
 
       const updatedWorkload =
         await Workload.findById(
@@ -1073,7 +994,8 @@ app.put(
         message:
           "Failed to update workload",
 
-        error: error.message
+        error:
+          error.message
 
       });
 
@@ -1157,7 +1079,8 @@ app.delete(
         message:
           "Failed to delete workload",
 
-        error: error.message
+        error:
+          error.message
 
       });
 
@@ -1185,11 +1108,6 @@ app.post(
         message
       } = req.body;
 
-
-      // --------------------------------------------------
-      // VALIDATION
-      // --------------------------------------------------
-
       if (
         !name ||
         !email ||
@@ -1207,11 +1125,6 @@ app.post(
         });
 
       }
-
-
-      // --------------------------------------------------
-      // SAVE CONSULTATION TO MONGODB
-      // --------------------------------------------------
 
       const consultation =
         await Consultation.create({
@@ -1235,16 +1148,10 @@ app.post(
 
         });
 
-
       console.log(
         "Consultation saved successfully:",
         consultation._id.toString()
       );
-
-
-      // --------------------------------------------------
-      // RESPOND TO FRONTEND
-      // --------------------------------------------------
 
       res.status(201).json({
 
@@ -1256,12 +1163,6 @@ app.post(
         consultation
 
       });
-
-
-      // --------------------------------------------------
-      // SEND EMAIL IN BACKGROUND
-      // RESEND API
-      // --------------------------------------------------
 
       if (
         resend &&
@@ -1386,7 +1287,6 @@ app.post(
         );
 
       }
-
 
     } catch (error) {
 
