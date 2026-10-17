@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 require("dotenv").config();
 
@@ -101,61 +101,25 @@ mongoose
 
 // ======================================================
 // EMAIL CONFIGURATION
-// RESEND SMTP
+// RESEND API
 // ======================================================
 
-let emailTransporter = null;
+let resend = null;
 
-if (
-  process.env.RESEND_SMTP_USER &&
-  process.env.RESEND_SMTP_PASS
-) {
+if (process.env.RESEND_API_KEY) {
 
-  emailTransporter = nodemailer.createTransport({
+  resend = new Resend(
+    process.env.RESEND_API_KEY
+  );
 
-    host: "smtp.resend.com",
-
-    port: 465,
-
-    secure: true,
-
-    auth: {
-      user: process.env.RESEND_SMTP_USER,
-      pass: process.env.RESEND_SMTP_PASS
-    },
-
-    connectionTimeout: 10000,
-
-    greetingTimeout: 10000,
-
-    socketTimeout: 15000
-
-  });
-
-
-  emailTransporter.verify((error) => {
-
-    if (error) {
-
-      console.error(
-        "RESEND SMTP ERROR:",
-        error.message
-      );
-
-    } else {
-
-      console.log(
-        "Resend SMTP transporter ready"
-      );
-
-    }
-
-  });
+  console.log(
+    "Resend API configured successfully"
+  );
 
 } else {
 
   console.log(
-    "RESEND_SMTP_USER or RESEND_SMTP_PASS is missing."
+    "RESEND_API_KEY is missing."
   );
 
 }
@@ -880,6 +844,10 @@ app.put(
       }
 
 
+      // ==================================================
+      // EMPLOYEE UPDATE
+      // ==================================================
+
       if (
         req.user.role === "employee"
       ) {
@@ -923,6 +891,10 @@ app.put(
 
       }
 
+
+      // ==================================================
+      // OWNER UPDATE
+      // ==================================================
 
       else if (
         req.user.role === "owner"
@@ -1026,6 +998,7 @@ app.put(
             priority;
 
         }
+
 
         if (
           typeof deadline !== "undefined"
@@ -1287,95 +1260,105 @@ app.post(
 
       // --------------------------------------------------
       // SEND EMAIL IN BACKGROUND
+      // RESEND API
       // --------------------------------------------------
 
       if (
-        emailTransporter &&
+        resend &&
         process.env.EMAIL_FROM &&
         process.env.EMAIL_TO
       ) {
 
-        emailTransporter
-          .sendMail({
+        resend.emails.send({
 
-            from:
-              process.env.EMAIL_FROM,
+          from:
+            process.env.EMAIL_FROM,
 
-            to:
-              process.env.EMAIL_TO,
+          to:
+            process.env.EMAIL_TO,
 
-            replyTo:
-              email.trim(),
+          replyTo:
+            email.trim(),
 
-            subject:
-              "New Consultation Request - CA Anil Raghuvanshi",
+          subject:
+            "New Consultation Request - CA Anil Raghuvanshi",
 
-            html: `
+          html: `
 
-              <div
-                style="
-                  font-family: Arial, sans-serif;
-                  line-height: 1.6;
-                  max-width: 600px;
-                  margin: auto;
-                  padding: 20px;
-                "
-              >
+            <div
+              style="
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                max-width: 600px;
+                margin: auto;
+                padding: 20px;
+              "
+            >
 
-                <h2>
-                  New Consultation Request
-                </h2>
+              <h2>
+                New Consultation Request
+              </h2>
 
-                <p>
-                  A new consultation request
-                  has been received from the website.
-                </p>
+              <p>
+                A new consultation request
+                has been received from the website.
+              </p>
 
-                <hr>
+              <hr>
 
-                <p>
-                  <strong>Name:</strong>
-                  ${name}
-                </p>
+              <p>
+                <strong>Name:</strong>
+                ${name}
+              </p>
 
-                <p>
-                  <strong>Email:</strong>
-                  ${email}
-                </p>
+              <p>
+                <strong>Email:</strong>
+                ${email}
+              </p>
 
-                <p>
-                  <strong>Phone:</strong>
-                  ${phone}
-                </p>
+              <p>
+                <strong>Phone:</strong>
+                ${phone}
+              </p>
 
-                <p>
-                  <strong>Service:</strong>
-                  ${service}
-                </p>
+              <p>
+                <strong>Service:</strong>
+                ${service}
+              </p>
 
-                <p>
-                  <strong>Message:</strong>
-                  ${
-                    message
-                      ? message
-                      : "No message provided"
-                  }
-                </p>
+              <p>
+                <strong>Message:</strong>
+                ${
+                  message
+                    ? message
+                    : "No message provided"
+                }
+              </p>
 
-                <hr>
+              <hr>
 
-                <p>
-                  This email was generated
-                  from the CA Anil Raghuvanshi website.
-                </p>
+              <p>
+                This email was generated
+                from the CA Anil Raghuvanshi website.
+              </p>
 
-              </div>
+            </div>
 
-            `
+          `
 
-          })
+        })
+          .then((result) => {
 
-          .then((info) => {
+            if (result.error) {
+
+              console.error(
+                "CONSULTATION EMAIL ERROR:",
+                result.error.message
+              );
+
+              return;
+
+            }
 
             console.log(
               "Consultation email sent successfully."
@@ -1383,11 +1366,10 @@ app.post(
 
             console.log(
               "Message ID:",
-              info.messageId
+              result.data?.id
             );
 
           })
-
           .catch((emailError) => {
 
             console.error(
@@ -1400,7 +1382,7 @@ app.post(
       } else {
 
         console.error(
-          "CONSULTATION EMAIL NOT SENT: EMAIL_FROM or EMAIL_TO is missing."
+          "CONSULTATION EMAIL NOT SENT: RESEND_API_KEY, EMAIL_FROM or EMAIL_TO is missing."
         );
 
       }
