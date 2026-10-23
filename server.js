@@ -59,15 +59,21 @@ app.use(express.urlencoded({ extended: true }));
 let resend = null;
 
 if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
+
+  resend = new Resend(
+    process.env.RESEND_API_KEY
+  );
 
   console.log(
     "Resend API configured successfully"
   );
+
 } else {
+
   console.error(
     "RESEND_API_KEY is missing"
   );
+
 }
 
 
@@ -77,9 +83,11 @@ if (process.env.RESEND_API_KEY) {
 
 app.get("/", (req, res) => {
 
-  res.send(
-    "CA Anil Raghuvanshi Backend Running"
-  );
+  res.json({
+    success: true,
+    message:
+      "CA Anil Raghuvanshi Backend is Running!"
+  });
 
 });
 
@@ -99,7 +107,6 @@ app.post(
         password
       } = req.body;
 
-
       if (!username || !password) {
 
         return res.status(400).json({
@@ -109,16 +116,13 @@ app.post(
 
       }
 
-
       const cleanUsername =
         username.trim().toLowerCase();
-
 
       const user =
         await User.findOne({
           username: cleanUsername
         });
-
 
       if (!user) {
 
@@ -129,13 +133,11 @@ app.post(
 
       }
 
-
       const passwordMatch =
         await bcrypt.compare(
           password,
           user.password
         );
-
 
       if (!passwordMatch) {
 
@@ -146,7 +148,6 @@ app.post(
 
       }
 
-
       const token =
         jwt.sign(
           {
@@ -154,14 +155,11 @@ app.post(
             username: user.username,
             role: user.role
           },
-
           process.env.JWT_SECRET,
-
           {
             expiresIn: "8h"
           }
         );
-
 
       return res.json({
 
@@ -211,7 +209,6 @@ app.get(
           req.user.id
         ).select("-password");
 
-
       if (!user) {
 
         return res.status(404).json({
@@ -220,7 +217,6 @@ app.get(
         });
 
       }
-
 
       return res.json(user);
 
@@ -263,7 +259,6 @@ app.get(
           createdAt: -1
         });
 
-
       res.json(employees);
 
     } catch (error) {
@@ -303,7 +298,6 @@ app.post(
         password
       } = req.body;
 
-
       if (
         !name ||
         !username ||
@@ -317,16 +311,13 @@ app.post(
 
       }
 
-
       const cleanUsername =
         username.trim().toLowerCase();
-
 
       const existingUser =
         await User.findOne({
           username: cleanUsername
         });
-
 
       if (existingUser) {
 
@@ -337,13 +328,11 @@ app.post(
 
       }
 
-
       const hashedPassword =
         await bcrypt.hash(
           password,
           10
         );
-
 
       const employee =
         await User.create({
@@ -361,7 +350,6 @@ app.post(
             "employee"
 
         });
-
 
       res.status(201).json({
 
@@ -422,7 +410,6 @@ app.get(
           createdAt: -1
         });
 
-
       res.json(workloads);
 
     } catch (error) {
@@ -464,7 +451,6 @@ app.post(
         status
       } = req.body;
 
-
       if (
         !employeeId ||
         !task ||
@@ -479,7 +465,6 @@ app.post(
 
       }
 
-
       const employee =
         await User.findOne({
 
@@ -491,7 +476,6 @@ app.post(
 
         });
 
-
       if (!employee) {
 
         return res.status(404).json({
@@ -500,7 +484,6 @@ app.post(
         });
 
       }
-
 
       const workload =
         await Workload.create({
@@ -522,7 +505,6 @@ app.post(
             status || "Pending"
 
         });
-
 
       return res.status(201).json({
 
@@ -567,7 +549,6 @@ app.put(
       const workloadId =
         req.params.id;
 
-
       if (
         !mongoose.Types.ObjectId.isValid(
           workloadId
@@ -581,14 +562,12 @@ app.put(
 
       }
 
-
       const {
         task,
         priority,
         deadline,
         status
       } = req.body;
-
 
       if (
         !task ||
@@ -601,7 +580,6 @@ app.put(
         });
 
       }
-
 
       const updatedWorkload =
         await Workload.findByIdAndUpdate(
@@ -631,7 +609,6 @@ app.put(
 
         );
 
-
       if (!updatedWorkload) {
 
         return res.status(404).json({
@@ -640,7 +617,6 @@ app.put(
         });
 
       }
-
 
       return res.json({
 
@@ -686,7 +662,6 @@ app.delete(
       const workloadId =
         req.params.id;
 
-
       if (
         !mongoose.Types.ObjectId.isValid(
           workloadId
@@ -700,12 +675,10 @@ app.delete(
 
       }
 
-
       const deletedWorkload =
         await Workload.findByIdAndDelete(
           workloadId
         );
-
 
       if (!deletedWorkload) {
 
@@ -715,7 +688,6 @@ app.delete(
         });
 
       }
-
 
       return res.json({
 
@@ -743,7 +715,7 @@ app.delete(
 
 
 // =====================================================
-// BOOK CONSULTATION
+// BOOK CONSULTATION + EMAIL
 // =====================================================
 
 app.post(
@@ -851,7 +823,11 @@ app.post(
       // -----------------------------------------------
 
       console.log(
-        "EMAIL CONFIGURATION CHECK:"
+        "================================="
+      );
+
+      console.log(
+        "EMAIL CONFIGURATION CHECK"
       );
 
       console.log(
@@ -869,186 +845,241 @@ app.post(
         process.env.EMAIL_TO || "MISSING"
       );
 
+      console.log(
+        "================================="
+      );
+
 
       // -----------------------------------------------
-      // SEND EMAIL
+      // CHECK RESEND CONFIGURATION
       // -----------------------------------------------
 
       if (!resend) {
 
         console.error(
-          "EMAIL ERROR: Resend is not configured."
+          "RESEND_API_KEY IS MISSING"
         );
+
+        return res.status(500).json({
+
+          success: false,
+
+          message:
+            "Consultation saved, but Resend is not configured"
+
+        });
 
       }
 
-      else if (!process.env.EMAIL_FROM) {
+
+      if (!process.env.EMAIL_FROM) {
 
         console.error(
-          "EMAIL ERROR: EMAIL_FROM is missing."
+          "EMAIL_FROM IS MISSING"
         );
+
+        return res.status(500).json({
+
+          success: false,
+
+          message:
+            "Consultation saved, but EMAIL_FROM is missing"
+
+        });
 
       }
 
-      else if (!process.env.EMAIL_TO) {
+
+      if (!process.env.EMAIL_TO) {
 
         console.error(
-          "EMAIL ERROR: EMAIL_TO is missing."
+          "EMAIL_TO IS MISSING"
         );
 
-      }
+        return res.status(500).json({
 
-      else {
+          success: false,
 
-        console.log(
-          "STARTING EMAIL SEND..."
-        );
+          message:
+            "Consultation saved, but EMAIL_TO is missing"
 
-
-        const {
-          data,
-          error
-        } =
-          await resend.emails.send({
-
-            from:
-              process.env.EMAIL_FROM,
-
-            to: [
-              process.env.EMAIL_TO
-            ],
-
-            replyTo:
-              email.trim(),
-
-            subject:
-              "New Consultation Request - CA Anil Raghuvanshi",
-
-            html: `
-
-              <div
-                style="
-                  font-family: Arial, sans-serif;
-                  line-height: 1.6;
-                  max-width: 600px;
-                  margin: auto;
-                  padding: 20px;
-                  border: 1px solid #ddd;
-                  border-radius: 10px;
-                "
-              >
-
-                <h2
-                  style="
-                    color: #0b315d;
-                  "
-                >
-                  New Consultation Request
-                </h2>
-
-                <p>
-                  A new consultation request
-                  has been received from the
-                  CA Anil Raghuvanshi website.
-                </p>
-
-                <hr>
-
-                <p>
-                  <strong>Name:</strong>
-                  ${name.trim()}
-                </p>
-
-                <p>
-                  <strong>Email:</strong>
-                  ${email.trim()}
-                </p>
-
-                <p>
-                  <strong>Phone:</strong>
-                  ${phone.trim()}
-                </p>
-
-                <p>
-                  <strong>Service:</strong>
-                  ${service.trim()}
-                </p>
-
-                <p>
-                  <strong>Message:</strong>
-                  ${
-                    message
-                      ? message.trim()
-                      : "No message provided"
-                  }
-                </p>
-
-                <hr>
-
-                <p>
-                  This email was generated
-                  from the CA Anil Raghuvanshi
-                  website.
-                </p>
-
-              </div>
-
-            `
-
-          });
-
-
-        // ---------------------------------------------
-        // RESEND RESULT
-        // ---------------------------------------------
-
-        if (error) {
-
-          console.error(
-            "================================="
-          );
-
-          console.error(
-            "CONSULTATION EMAIL FAILED"
-          );
-
-          console.error(
-            "ERROR:",
-            error
-          );
-
-          console.error(
-            "================================="
-          );
-
-        }
-
-        else {
-
-          console.log(
-            "================================="
-          );
-
-          console.log(
-            "CONSULTATION EMAIL SENT SUCCESSFULLY"
-          );
-
-          console.log(
-            "MESSAGE ID:",
-            data?.id
-          );
-
-          console.log(
-            "================================="
-          );
-
-        }
+        });
 
       }
 
 
       // -----------------------------------------------
-      // FINAL RESPONSE
+      // SEND EMAIL THROUGH RESEND
+      // -----------------------------------------------
+
+      console.log(
+        "STARTING EMAIL SEND..."
+      );
+
+
+      const result =
+        await resend.emails.send({
+
+          from:
+            process.env.EMAIL_FROM,
+
+          to: [
+            process.env.EMAIL_TO
+          ],
+
+          replyTo:
+            email.trim(),
+
+          subject:
+            "New Consultation Request - CA Anil Raghuvanshi",
+
+          html: `
+
+            <div
+              style="
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                max-width: 600px;
+                margin: auto;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 10px;
+              "
+            >
+
+              <h2
+                style="
+                  color: #0b315d;
+                "
+              >
+                New Consultation Request
+              </h2>
+
+              <p>
+                A new consultation request
+                has been received from the
+                CA Anil Raghuvanshi website.
+              </p>
+
+              <hr>
+
+              <p>
+                <strong>Name:</strong>
+                ${name.trim()}
+              </p>
+
+              <p>
+                <strong>Email:</strong>
+                ${email.trim()}
+              </p>
+
+              <p>
+                <strong>Phone:</strong>
+                ${phone.trim()}
+              </p>
+
+              <p>
+                <strong>Service:</strong>
+                ${service.trim()}
+              </p>
+
+              <p>
+                <strong>Message:</strong>
+                ${
+                  message
+                    ? message.trim()
+                    : "No message provided"
+                }
+              </p>
+
+              <hr>
+
+              <p>
+                This email was generated
+                from the CA Anil Raghuvanshi
+                website.
+              </p>
+
+            </div>
+
+          `
+
+        });
+
+
+      // -----------------------------------------------
+      // SHOW COMPLETE RESEND RESULT
+      // -----------------------------------------------
+
+      console.log(
+        "RESEND RESPONSE:",
+        result
+      );
+
+
+      // -----------------------------------------------
+      // RESEND ERROR
+      // -----------------------------------------------
+
+      if (result.error) {
+
+        console.error(
+          "================================="
+        );
+
+        console.error(
+          "RESEND EMAIL FAILED"
+        );
+
+        console.error(
+          "ERROR:",
+          result.error
+        );
+
+        console.error(
+          "================================="
+        );
+
+
+        return res.status(500).json({
+
+          success: false,
+
+          message:
+            "Consultation saved, but email could not be sent",
+
+          emailError:
+            result.error
+
+        });
+
+      }
+
+
+      // -----------------------------------------------
+      // EMAIL SUCCESS
+      // -----------------------------------------------
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "CONSULTATION EMAIL SENT SUCCESSFULLY"
+      );
+
+      console.log(
+        "MESSAGE ID:",
+        result.data?.id
+      );
+
+      console.log(
+        "================================="
+      );
+
+
+      // -----------------------------------------------
+      // FINAL SUCCESS RESPONSE
       // -----------------------------------------------
 
       return res.status(201).json({
@@ -1056,9 +1087,12 @@ app.post(
         success: true,
 
         message:
-          "Consultation request submitted successfully",
+          "Consultation submitted and email sent successfully",
 
-        consultation
+        consultation,
+
+        emailId:
+          result.data?.id
 
       });
 
@@ -1070,10 +1104,21 @@ app.post(
       );
 
       console.error(
-        "CONSULTATION ERROR:"
+        "CONSULTATION / EMAIL ERROR"
       );
 
       console.error(
+        "ERROR NAME:",
+        error.name
+      );
+
+      console.error(
+        "ERROR MESSAGE:",
+        error.message
+      );
+
+      console.error(
+        "FULL ERROR:",
         error
       );
 
@@ -1087,7 +1132,7 @@ app.post(
         success: false,
 
         message:
-          "Failed to submit consultation",
+          "Consultation saved, but email sending failed",
 
         error:
           error.message
@@ -1118,7 +1163,6 @@ app.get(
         .sort({
           createdAt: -1
         });
-
 
       res.json(consultations);
 
@@ -1157,7 +1201,6 @@ app.put(
         status
       } = req.body;
 
-
       const consultation =
         await Consultation.findByIdAndUpdate(
 
@@ -1174,7 +1217,6 @@ app.put(
 
         );
 
-
       if (!consultation) {
 
         return res.status(404).json({
@@ -1183,7 +1225,6 @@ app.put(
         });
 
       }
-
 
       res.json({
 
