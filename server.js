@@ -38,8 +38,17 @@ app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization"
+    ]
   })
 );
 
@@ -49,7 +58,12 @@ app.use(
 // =====================================================
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  express.urlencoded({
+    extended: true
+  })
+);
 
 
 // =====================================================
@@ -84,9 +98,12 @@ if (process.env.RESEND_API_KEY) {
 app.get("/", (req, res) => {
 
   res.json({
+
     success: true,
+
     message:
       "CA Anil Raghuvanshi Backend is Running!"
+
   });
 
 });
@@ -98,6 +115,7 @@ app.get("/", (req, res) => {
 
 app.post(
   "/api/auth/login",
+
   async (req, res) => {
 
     try {
@@ -107,69 +125,114 @@ app.post(
         password
       } = req.body;
 
+
       if (!username || !password) {
 
         return res.status(400).json({
+
           message:
             "Username and password are required"
+
         });
 
       }
 
+
       const cleanUsername =
-        username.trim().toLowerCase();
+        username
+          .trim()
+          .toLowerCase();
+
 
       const user =
         await User.findOne({
-          username: cleanUsername
+
+          username:
+            cleanUsername
+
         });
+
 
       if (!user) {
 
         return res.status(401).json({
+
           message:
             "Invalid username or password"
+
         });
 
       }
 
+
       const passwordMatch =
         await bcrypt.compare(
+
           password,
+
           user.password
+
         );
+
 
       if (!passwordMatch) {
 
         return res.status(401).json({
+
           message:
             "Invalid username or password"
+
         });
 
       }
 
+
       const token =
         jwt.sign(
+
           {
-            id: user._id.toString(),
-            username: user.username,
-            role: user.role
+
+            id:
+              user._id.toString(),
+
+            username:
+              user.username,
+
+            role:
+              user.role
+
           },
+
           process.env.JWT_SECRET,
+
           {
-            expiresIn: "8h"
+
+            expiresIn:
+              "8h"
+
           }
+
         );
+
 
       return res.json({
 
         token,
 
         user: {
-          _id: user._id,
-          name: user.name,
-          username: user.username,
-          role: user.role
+
+          _id:
+            user._id,
+
+          name:
+            user.name,
+
+          username:
+            user.username,
+
+          role:
+            user.role
+
         }
 
       });
@@ -181,9 +244,12 @@ app.post(
         error
       );
 
+
       return res.status(500).json({
+
         message:
           "Server error during login"
+
       });
 
     }
@@ -198,6 +264,7 @@ app.post(
 
 app.get(
   "/api/auth/me",
+
   authenticateToken,
 
   async (req, res) => {
@@ -206,17 +273,23 @@ app.get(
 
       const user =
         await User.findById(
+
           req.user.id
+
         ).select("-password");
+
 
       if (!user) {
 
         return res.status(404).json({
+
           message:
             "User not found"
+
         });
 
       }
+
 
       return res.json(user);
 
@@ -227,9 +300,12 @@ app.get(
         error
       );
 
+
       return res.status(500).json({
+
         message:
           "Server error"
+
       });
 
     }
@@ -244,6 +320,7 @@ app.get(
 
 app.get(
   "/api/employees",
+
   authenticateToken,
 
   async (req, res) => {
@@ -252,12 +329,19 @@ app.get(
 
       const employees =
         await User.find({
-          role: "employee"
+
+          role:
+            "employee"
+
         })
         .select("-password")
         .sort({
-          createdAt: -1
+
+          createdAt:
+            -1
+
         });
+
 
       res.json(employees);
 
@@ -268,9 +352,12 @@ app.get(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to fetch employees"
+
       });
 
     }
@@ -285,7 +372,9 @@ app.get(
 
 app.post(
   "/api/employees",
+
   authenticateToken,
+
   requireOwner,
 
   async (req, res) => {
@@ -298,6 +387,7 @@ app.post(
         password
       } = req.body;
 
+
       if (
         !name ||
         !username ||
@@ -305,34 +395,51 @@ app.post(
       ) {
 
         return res.status(400).json({
+
           message:
             "Name, username and password are required"
+
         });
 
       }
 
+
       const cleanUsername =
-        username.trim().toLowerCase();
+        username
+          .trim()
+          .toLowerCase();
+
 
       const existingUser =
         await User.findOne({
-          username: cleanUsername
+
+          username:
+            cleanUsername
+
         });
+
 
       if (existingUser) {
 
         return res.status(409).json({
+
           message:
             "Username already exists"
+
         });
 
       }
 
+
       const hashedPassword =
         await bcrypt.hash(
+
           password,
+
           10
+
         );
+
 
       const employee =
         await User.create({
@@ -350,6 +457,7 @@ app.post(
             "employee"
 
         });
+
 
       res.status(201).json({
 
@@ -381,9 +489,12 @@ app.post(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to create employee"
+
       });
 
     }
@@ -398,6 +509,7 @@ app.post(
 
 app.get(
   "/api/workload",
+
   authenticateToken,
 
   async (req, res) => {
@@ -407,8 +519,12 @@ app.get(
       const workloads =
         await Workload.find()
         .sort({
-          createdAt: -1
+
+          createdAt:
+            -1
+
         });
+
 
       res.json(workloads);
 
@@ -419,9 +535,12 @@ app.get(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to fetch workload"
+
       });
 
     }
@@ -436,7 +555,9 @@ app.get(
 
 app.post(
   "/api/workload",
+
   authenticateToken,
+
   requireOwner,
 
   async (req, res) => {
@@ -451,6 +572,7 @@ app.post(
         status
       } = req.body;
 
+
       if (
         !employeeId ||
         !task ||
@@ -459,11 +581,34 @@ app.post(
       ) {
 
         return res.status(400).json({
+
           message:
             "Employee, task, priority and deadline are required"
+
         });
 
       }
+
+
+      // -----------------------------------------------
+      // VALIDATE EMPLOYEE
+      // -----------------------------------------------
+
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          employeeId
+        )
+      ) {
+
+        return res.status(400).json({
+
+          message:
+            "Invalid employee ID"
+
+        });
+
+      }
+
 
       const employee =
         await User.findOne({
@@ -476,14 +621,18 @@ app.post(
 
         });
 
+
       if (!employee) {
 
         return res.status(404).json({
+
           message:
             "Employee not found"
+
         });
 
       }
+
 
       const workload =
         await Workload.create({
@@ -497,14 +646,17 @@ app.post(
           task:
             task.trim(),
 
-          priority,
+          priority:
+            priority,
 
-          deadline,
+          deadline:
+            deadline,
 
           status:
             status || "Pending"
 
         });
+
 
       return res.status(201).json({
 
@@ -522,9 +674,15 @@ app.post(
         error
       );
 
+
       return res.status(500).json({
+
         message:
-          "Failed to assign work"
+          "Failed to assign work",
+
+        error:
+          error.message
+
       });
 
     }
@@ -536,18 +694,38 @@ app.post(
 // =====================================================
 // UPDATE / MODIFY WORKLOAD
 // =====================================================
+// OWNER ONLY
+//
+// This route allows the owner to edit:
+// 1. Employee
+// 2. Task
+// 3. Priority
+// 4. Deadline
+// 5. Status
+// =====================================================
 
 app.put(
   "/api/workload/:id",
+
   authenticateToken,
+
   requireOwner,
 
   async (req, res) => {
 
     try {
 
+      // -----------------------------------------------
+      // GET WORKLOAD ID
+      // -----------------------------------------------
+
       const workloadId =
         req.params.id;
+
+
+      // -----------------------------------------------
+      // VALIDATE WORKLOAD ID
+      // -----------------------------------------------
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -556,18 +734,77 @@ app.put(
       ) {
 
         return res.status(400).json({
+
+          success:
+            false,
+
           message:
             "Invalid workload ID."
+
         });
 
       }
 
+
+      // -----------------------------------------------
+      // GET DATA FROM FRONTEND
+      // -----------------------------------------------
+
       const {
+        employeeId,
         task,
         priority,
         deadline,
         status
       } = req.body;
+
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "UPDATE WORKLOAD REQUEST"
+      );
+
+      console.log(
+        "Workload ID:",
+        workloadId
+      );
+
+      console.log(
+        "Employee ID:",
+        employeeId
+      );
+
+      console.log(
+        "Task:",
+        task
+      );
+
+      console.log(
+        "Priority:",
+        priority
+      );
+
+      console.log(
+        "Deadline:",
+        deadline
+      );
+
+      console.log(
+        "Status:",
+        status
+      );
+
+      console.log(
+        "================================="
+      );
+
+
+      // -----------------------------------------------
+      // VALIDATE TASK
+      // -----------------------------------------------
 
       if (
         !task ||
@@ -575,11 +812,90 @@ app.put(
       ) {
 
         return res.status(400).json({
+
+          success:
+            false,
+
           message:
             "Task is required."
+
         });
 
       }
+
+
+      // -----------------------------------------------
+      // VALIDATE EMPLOYEE ID
+      // -----------------------------------------------
+
+      if (!employeeId) {
+
+        return res.status(400).json({
+
+          success:
+            false,
+
+          message:
+            "Employee is required."
+
+        });
+
+      }
+
+
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          employeeId
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success:
+            false,
+
+          message:
+            "Invalid employee ID."
+
+        });
+
+      }
+
+
+      // -----------------------------------------------
+      // FIND SELECTED EMPLOYEE
+      // -----------------------------------------------
+
+      const employee =
+        await User.findOne({
+
+          _id:
+            employeeId,
+
+          role:
+            "employee"
+
+        });
+
+
+      if (!employee) {
+
+        return res.status(404).json({
+
+          success:
+            false,
+
+          message:
+            "Employee not found."
+
+        });
+
+      }
+
+
+      // -----------------------------------------------
+      // UPDATE WORKLOAD
+      // -----------------------------------------------
 
       const updatedWorkload =
         await Workload.findByIdAndUpdate(
@@ -587,6 +903,12 @@ app.put(
           workloadId,
 
           {
+
+            employeeId:
+              employee._id,
+
+            employeeName:
+              employee.name,
 
             task:
               task.trim(),
@@ -603,22 +925,54 @@ app.put(
           },
 
           {
-            new: true,
-            runValidators: true
+
+            new:
+              true,
+
+            runValidators:
+              true
+
           }
 
         );
 
+
+      // -----------------------------------------------
+      // CHECK WORKLOAD
+      // -----------------------------------------------
+
       if (!updatedWorkload) {
 
         return res.status(404).json({
+
+          success:
+            false,
+
           message:
             "Workload not found."
+
         });
 
       }
 
+
+      // -----------------------------------------------
+      // SUCCESS
+      // -----------------------------------------------
+
+      console.log(
+        "WORKLOAD UPDATED SUCCESSFULLY"
+      );
+
+      console.log(
+        updatedWorkload
+      );
+
+
       return res.json({
+
+        success:
+          true,
 
         message:
           "Workload updated successfully.",
@@ -630,14 +984,49 @@ app.put(
 
     } catch (error) {
 
+      // -----------------------------------------------
+      // ERROR
+      // -----------------------------------------------
+
       console.error(
-        "UPDATE WORKLOAD ERROR:",
+        "================================="
+      );
+
+      console.error(
+        "UPDATE WORKLOAD ERROR"
+      );
+
+      console.error(
+        "ERROR NAME:",
+        error.name
+      );
+
+      console.error(
+        "ERROR MESSAGE:",
+        error.message
+      );
+
+      console.error(
+        "FULL ERROR:",
         error
       );
 
+      console.error(
+        "================================="
+      );
+
+
       return res.status(500).json({
+
+        success:
+          false,
+
         message:
-          "Failed to update workload."
+          "Failed to update workload.",
+
+        error:
+          error.message
+
       });
 
     }
@@ -652,7 +1041,9 @@ app.put(
 
 app.delete(
   "/api/workload/:id",
+
   authenticateToken,
+
   requireOwner,
 
   async (req, res) => {
@@ -662,6 +1053,7 @@ app.delete(
       const workloadId =
         req.params.id;
 
+
       if (
         !mongoose.Types.ObjectId.isValid(
           workloadId
@@ -669,25 +1061,32 @@ app.delete(
       ) {
 
         return res.status(400).json({
+
           message:
             "Invalid workload ID."
+
         });
 
       }
+
 
       const deletedWorkload =
         await Workload.findByIdAndDelete(
           workloadId
         );
 
+
       if (!deletedWorkload) {
 
         return res.status(404).json({
+
           message:
             "Workload not found."
+
         });
 
       }
+
 
       return res.json({
 
@@ -703,9 +1102,12 @@ app.delete(
         error
       );
 
+
       return res.status(500).json({
+
         message:
           "Failed to delete workload."
+
       });
 
     }
@@ -773,9 +1175,11 @@ app.post(
           "CONSULTATION VALIDATION FAILED"
         );
 
+
         return res.status(400).json({
 
-          success: false,
+          success:
+            false,
 
           message:
             "Name, email, phone and service are required"
@@ -860,9 +1264,11 @@ app.post(
           "RESEND_API_KEY IS MISSING"
         );
 
+
         return res.status(500).json({
 
-          success: false,
+          success:
+            false,
 
           message:
             "Consultation saved, but Resend is not configured"
@@ -878,9 +1284,11 @@ app.post(
           "EMAIL_FROM IS MISSING"
         );
 
+
         return res.status(500).json({
 
-          success: false,
+          success:
+            false,
 
           message:
             "Consultation saved, but EMAIL_FROM is missing"
@@ -896,9 +1304,11 @@ app.post(
           "EMAIL_TO IS MISSING"
         );
 
+
         return res.status(500).json({
 
-          success: false,
+          success:
+            false,
 
           message:
             "Consultation saved, but EMAIL_TO is missing"
@@ -1043,7 +1453,8 @@ app.post(
 
         return res.status(500).json({
 
-          success: false,
+          success:
+            false,
 
           message:
             "Consultation saved, but email could not be sent",
@@ -1084,7 +1495,8 @@ app.post(
 
       return res.status(201).json({
 
-        success: true,
+        success:
+          true,
 
         message:
           "Consultation submitted and email sent successfully",
@@ -1095,7 +1507,6 @@ app.post(
           result.data?.id
 
       });
-
 
     } catch (error) {
 
@@ -1129,7 +1540,8 @@ app.post(
 
       return res.status(500).json({
 
-        success: false,
+        success:
+          false,
 
         message:
           "Consultation saved, but email sending failed",
@@ -1151,7 +1563,9 @@ app.post(
 
 app.get(
   "/api/consultations",
+
   authenticateToken,
+
   requireOwner,
 
   async (req, res) => {
@@ -1161,8 +1575,12 @@ app.get(
       const consultations =
         await Consultation.find()
         .sort({
-          createdAt: -1
+
+          createdAt:
+            -1
+
         });
+
 
       res.json(consultations);
 
@@ -1173,9 +1591,12 @@ app.get(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to fetch consultations"
+
       });
 
     }
@@ -1190,7 +1611,9 @@ app.get(
 
 app.put(
   "/api/consultations/:id",
+
   authenticateToken,
+
   requireOwner,
 
   async (req, res) => {
@@ -1201,30 +1624,42 @@ app.put(
         status
       } = req.body;
 
+
       const consultation =
         await Consultation.findByIdAndUpdate(
 
           req.params.id,
 
           {
+
             status
+
           },
 
           {
-            new: true,
-            runValidators: true
+
+            new:
+              true,
+
+            runValidators:
+              true
+
           }
 
         );
 
+
       if (!consultation) {
 
         return res.status(404).json({
+
           message:
             "Consultation not found"
+
         });
 
       }
+
 
       res.json({
 
@@ -1242,9 +1677,12 @@ app.put(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to update consultation"
+
       });
 
     }
@@ -1278,6 +1716,10 @@ async function startServer() {
     );
 
 
+    // -----------------------------------------------
+    // CHECK MONGO URI
+    // -----------------------------------------------
+
     if (!process.env.MONGO_URI) {
 
       console.error(
@@ -1288,6 +1730,10 @@ async function startServer() {
 
     }
 
+
+    // -----------------------------------------------
+    // CHECK JWT SECRET
+    // -----------------------------------------------
 
     if (!process.env.JWT_SECRET) {
 
@@ -1300,6 +1746,10 @@ async function startServer() {
     }
 
 
+    // -----------------------------------------------
+    // CONNECT MONGODB
+    // -----------------------------------------------
+
     await mongoose.connect(
       process.env.MONGO_URI
     );
@@ -1310,8 +1760,14 @@ async function startServer() {
     );
 
 
+    // -----------------------------------------------
+    // START SERVER
+    // -----------------------------------------------
+
     app.listen(
+
       PORT,
+
       "0.0.0.0",
 
       () => {
@@ -1331,7 +1787,6 @@ async function startServer() {
       }
 
     );
-
 
   } catch (error) {
 
@@ -1356,6 +1811,7 @@ async function startServer() {
     console.error(
       "================================="
     );
+
 
     process.exit(1);
 
