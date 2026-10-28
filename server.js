@@ -31,7 +31,8 @@ const allowedOrigins = [
 
   "https://curious-kitten-8b981e.netlify.app",
   "https://kaleidoscopic-brioche-25e14d.netlify.app",
-  "https://ca-anil-raghuvanshi-website.netlify.app"
+  "https://ca-anil-raghuvanshi-website.netlify.app",
+  "https://clever-pithivier-dcc022.netlify.app"
 ];
 
 app.use(
